@@ -1,0 +1,107 @@
+services:
+  postgres-dev:
+    image: postgres:16
+    restart: unless-stopped
+    profiles: ["dev"]
+    environment:
+      - POSTGRES_HOST=${POSTGRES_HOST_DEV}
+      - POSTGRES_DB=${POSTGRES_DB_DEV}
+      - POSTGRES_USER=${POSTGRES_USER_DEV}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_DEV}
+      - POSTGRES_NON_ROOT_USER=${POSTGRES_NON_ROOT_USER_DEV}
+      - POSTGRES_NON_ROOT_PASSWORD=${POSTGRES_NON_ROOT_PASSWORD_DEV}
+    volumes:
+      - pz_project_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h ${POSTGRES_HOST_DEV} -U ${POSTGRES_USER_DEV} -d ${POSTGRES_DB_DEV}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - 5411:5432
+    networks:
+      - pz
+
+  app-nestjs-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development 
+    command: yarn start:dev 
+    profiles: ["dev"]
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - APP_PORT=${APP_PORT}
+      - DATABASE_PORT=5432
+      - DATABASE_HOST=${POSTGRES_HOST_DEV}
+      - DATABASE_NAME=${POSTGRES_DB_DEV}
+      - DATABASE_USER=${POSTGRES_USER_DEV}
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD_DEV}
+    volumes:
+      - ./:/usr/src/app
+      # - /usr/src/app/node_modules
+    ports:
+        - "${HOST_PORT}:3000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+    networks:
+      - pz
+
+  app-nestjs-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production 
+    # 'command' no es necesario, se usa el CMD del Dockerfile
+    profiles: ["prod"]
+    restart: unless-stopped
+    # NO montar volúmenes de código fuente en producción
+    ports:
+      - "${HOST_PORT}:3000"
+    environment:
+      - NODE_ENV=production
+      - APP_PORT=${APP_PORT}
+      - DATABASE_PORT=5432
+      - DATABASE_HOST=${POSTGRES_HOST}
+      - DATABASE_NAME=${POSTGRES_DB}
+      - DATABASE_USER=${POSTGRES_USER}
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+    networks:
+      - pz
+
+  postgres-prod:
+    image: postgres:16
+    restart: unless-stopped
+    profiles: ["prod"]
+    environment:
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_NON_ROOT_USER=${POSTGRES_NON_ROOT_USER}
+      # - POSTGRES_NON_ROOT_PASSWORD=${POSTGRES_NON_ROOT_PASSWORD_DEV}
+    volumes:
+      - pz_project_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h ${POSTGRES_HOST_DEV} -U ${POSTGRES_USER_DEV} -d ${POSTGRES_DB_DEV}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5430:5432"
+    networks:
+      - pz
+
+volumes:
+  pz_project_data:
+
+networks:
+  pz:
+    external: true
