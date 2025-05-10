@@ -5,6 +5,8 @@ import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { RolesModule } from './roles/roles.module';
+import { SendMailsModule } from './send-mails/send-mails.module';
+
 
 import { User } from './users/entities/user.entity';
 import { Tenant } from './tenants/entities/tenant.entity';
@@ -27,6 +29,7 @@ import { Role } from './roles/entities/role.entity';
     UsersModule,
     TenantsModule,
     RolesModule,
+    SendMailsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

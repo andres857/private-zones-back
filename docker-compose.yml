@@ -38,6 +38,8 @@ services:
       - DATABASE_NAME=${POSTGRES_DB_DEV}
       - DATABASE_USER=${POSTGRES_USER_DEV}
       - DATABASE_PASSWORD=${POSTGRES_PASSWORD_DEV}
+      - SMTP_USER=${SMTP2GO_USERNAME}
+      - SMTP_PASS=${SMTP2GO_PASSWORD}
     volumes:
       - ./:/usr/src/app
       # - /usr/src/app/node_modules
