@@ -13,9 +13,15 @@ import { Tenant } from './tenants/entities/tenant.entity';
 import { TenantConfig } from './tenants/entities/tenant-config.entity';
 import { TenantContactInfo } from './tenants/entities/tenant-contact-info.entity';
 import { Role } from './roles/entities/role.entity';
+import { GatewayPaymentModule } from './gateway-payment/gateway-payment.module';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      // envFilePath: ['.env'],
+    }),
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DATABASE_HOST || 'localhost',
@@ -30,6 +36,7 @@ import { Role } from './roles/entities/role.entity';
     TenantsModule,
     RolesModule,
     SendMailsModule,
+    GatewayPaymentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

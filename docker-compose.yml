@@ -40,6 +40,8 @@ services:
       - DATABASE_PASSWORD=${POSTGRES_PASSWORD_DEV}
       - SMTP_USER=${SMTP2GO_USERNAME}
       - SMTP_PASS=${SMTP2GO_PASSWORD}
+      - STRIPE_PUBLIC_KEY=${STRIPE_PUBLIC_KEY}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
     volumes:
       - ./:/usr/src/app
       # - /usr/src/app/node_modules
