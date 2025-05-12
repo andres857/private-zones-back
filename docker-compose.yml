@@ -44,7 +44,7 @@ services:
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
     volumes:
       - ./:/usr/src/app
-      # - /usr/src/app/node_modules
+      - /usr/src/app/node_modules
     ports:
         - "${HOST_PORT}:3000"
     logging:
