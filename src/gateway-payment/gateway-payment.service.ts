@@ -1,12 +1,21 @@
-import { Injectable, Inject, NotFoundException, InternalServerErrorException, BadRequestException, Logger } from '@nestjs/common';import Stripe from 'stripe';
+import { Injectable, Inject, NotFoundException, InternalServerErrorException, BadRequestException, Logger } from '@nestjs/common';
+import Stripe from 'stripe';
 import { ConfigService } from '@nestjs/config';
 import { CreateProductDto } from './dto/create-product.dto';
 
 @Injectable()
 export class StripeService {
   private readonly logger = new Logger(StripeService.name);
+  private readonly frontendUrl: string;
 
-  constructor(@Inject('STRIPE_API') private readonly stripe: Stripe) {}
+  constructor(
+    @Inject('STRIPE_API') private readonly stripe: Stripe,
+    private configService: ConfigService
+  ) {
+    // Obtener la URL del frontend desde las variables de entorno
+    // this.frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3020';
+    this.frontendUrl = 'http://localhost:5173';
+  }
 
   async createProductAndPrice(createProductDto: CreateProductDto): Promise<{ product: Stripe.Product; price: Stripe.Price }> {
     const { name, description, unit_amount, currency, interval } = createProductDto;
@@ -98,6 +107,94 @@ export class StripeService {
         throw new NotFoundException(`Precio con ID ${id} no encontrado en Stripe.`);
       }
       throw new InternalServerErrorException('Error al obtener el precio de Stripe.');
+    }
+  }
+
+  // crear una sesión de checkout
+  async createCheckoutSession(productId: string): Promise<{ url: string }> {
+    try {
+      this.logger.log(`Creando sesión de checkout para el producto ID: ${productId}`);
+      
+      // Obtener el producto
+      const product = await this.findProductById(productId);
+      
+      // Buscar un precio asociado al producto
+      const prices = await this.findAllPrices(1, productId);
+      
+      // Si no hay precios, crear uno temporal
+      if (prices.data.length > 0) {
+        const priceId = prices.data[0].id;
+        this.logger.log(`Usando precio existente ID: ${priceId}`);
+        
+        // Verificar si el precio es recurrente (subscription)
+        const price = await this.findPriceById(priceId);
+        const isRecurring = price.recurring !== null;
+        
+        // Crear la sesión de checkout con el precio existente
+        const session = await this.stripe.checkout.sessions.create({
+          payment_method_types: ['card'],
+          line_items: [
+            {
+              price: priceId,
+              quantity: 1,
+            },
+          ],
+          // Usar el modo 'subscription' si el precio es recurrente, de lo contrario 'payment'
+          mode: isRecurring ? 'subscription' : 'payment',
+          currency: 'cop',
+          success_url: `${this.frontendUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${this.frontendUrl}/checkout/canceled`,
+        });
+        
+        this.logger.log(`Sesión de checkout creada: ${session.id}`);
+        
+        // Verificar que la URL no sea null
+        if (!session.url) {
+          throw new InternalServerErrorException('No se pudo generar la URL de sesión de checkout');
+        }
+        
+        return { url: session.url };
+      } else {
+        // Si no hay un precio, usar un valor predeterminado
+        this.logger.log(`No se encontró precio para el producto ${productId}, creando sesión con precio por defecto`);
+        
+        // Crear la sesión de checkout directamente con price_data
+        const session = await this.stripe.checkout.sessions.create({
+          payment_method_types: ['card'],
+          line_items: [
+            {
+              price_data: {
+                currency: 'cop',
+                product_data: {
+                  name: product.name,
+                  description: product.description || '',
+                  images: product.images || [],
+                },
+                unit_amount: 3000, // 3.000 pesos colombianos (no tiene centavos)
+              },
+              quantity: 1,
+            },
+          ],
+          mode: 'payment',
+          success_url: `${this.frontendUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${this.frontendUrl}/checkout/canceled`,
+        });
+        
+        this.logger.log(`Sesión de checkout creada: ${session.id}`);
+        
+        // Verificar que la URL no sea null
+        if (!session.url) {
+          throw new InternalServerErrorException('No se pudo generar la URL de sesión de checkout');
+        }
+        
+        return { url: session.url };
+      }
+    } catch (error) {
+      this.logger.error(`Error creando sesión de checkout: ${error.message}`);
+      if (error instanceof Stripe.errors.StripeError) {
+        throw new BadRequestException(`Error de Stripe: ${error.message}`);
+      }
+      throw new InternalServerErrorException('Error al crear la sesión de checkout.');
     }
   }
 }

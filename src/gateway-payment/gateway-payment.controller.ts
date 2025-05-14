@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, Query, UsePipes, ValidationPipe, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Query, UsePipes, ValidationPipe, ParseIntPipe, DefaultValuePipe, InternalServerErrorException, Logger, BadRequestException } from '@nestjs/common';
 import { StripeService } from './gateway-payment.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import Stripe from 'stripe';
@@ -6,6 +6,7 @@ import Stripe from 'stripe';
 @Controller('gateway-payment/stripe')
 export class GatewayPaymentController {
     constructor(private readonly stripeService: StripeService) {}
+    private readonly logger = new Logger(StripeService.name);
 
     @Post('products')
     @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
@@ -40,5 +41,17 @@ export class GatewayPaymentController {
     @Get('prices/:id')
     async getPriceById(@Param('id') id: string): Promise<Stripe.Price> {
         return this.stripeService.findPriceById(id);
+    }
+
+    @Post('create-checkout-session')
+    async createCheckoutSession(@Body() body: { productId: string }) {
+        if (!body.productId) {
+            throw new BadRequestException('El ID del producto es requerido');
+        }
+        
+        this.logger.log(`Solicitud de sesión de checkout para producto: ${body.productId}`);
+        
+        // Utilizar el método del servicio directamente
+        return this.stripeService.createCheckoutSession(body.productId);
     }
 }
