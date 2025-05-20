@@ -2,7 +2,7 @@ import { IsArray, IsNotEmpty, IsUUID, ArrayNotEmpty } from 'class-validator';
 
 export class AssignRolesDto {
   @IsNotEmpty()
-  userId: number;
+  userId: string;
 
   @IsArray()
   @ArrayNotEmpty()

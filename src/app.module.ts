@@ -15,6 +15,8 @@ import { TenantContactInfo } from './tenants/entities/tenant-contact-info.entity
 import { Role } from './roles/entities/role.entity';
 import { GatewayPaymentModule } from './gateway-payment/gateway-payment.module';
 import { ConfigModule } from '@nestjs/config';
+import { AuthModule } from './auth/auth.module';
+import { RefreshToken } from './auth/entities/token.entity';
 
 @Module({
   imports: [
@@ -29,7 +31,7 @@ import { ConfigModule } from '@nestjs/config';
       database: process.env.DATABASE_NAME || 'net_db',
       username: process.env.DATABASE_USER || 'postgres',
       password: process.env.DATABASE_PASSWORD || 'postgres',
-      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role],
+      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken],
       synchronize: true,
     }),
     UsersModule,
@@ -37,6 +39,7 @@ import { ConfigModule } from '@nestjs/config';
     RolesModule,
     SendMailsModule,
     GatewayPaymentModule,
+    AuthModule
   ],
   controllers: [AppController],
   providers: [AppService],

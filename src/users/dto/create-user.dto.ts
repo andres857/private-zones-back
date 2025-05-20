@@ -1,4 +1,5 @@
-import { IsEmail, IsNotEmpty, IsString, IsUUID, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, IsUUID, MinLength, IsOptional, IsEnum, ArrayNotEmpty, ArrayUnique } from 'class-validator';
+import { UserRole } from '../../common/enums/user-role.enum';
 
 export class CreateUserDto {
   @IsNotEmpty()
@@ -20,5 +21,11 @@ export class CreateUserDto {
 
   @IsNotEmpty()
   @IsUUID()
-  clientId: string;
-} 
+  tenantId: string;
+
+  @IsOptional()
+  @ArrayNotEmpty()
+  @ArrayUnique()
+  @IsString({ each: true, message: 'Cada rol debe ser un string' })
+  roles?: string[]; // Cambiar de UserRole[] a string[]
+}

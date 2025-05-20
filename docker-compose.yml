@@ -42,6 +42,9 @@ services:
       - SMTP_PASS=${SMTP2GO_PASSWORD}
       - STRIPE_PUBLIC_KEY=${STRIPE_PUBLIC_KEY}
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - JWT_EXPIRATION=${JWT_EXPIRATION}
     volumes:
       - ./:/usr/src/app
       - /usr/src/app/node_modules
@@ -73,6 +76,9 @@ services:
       - DATABASE_NAME=${POSTGRES_DB}
       - DATABASE_USER=${POSTGRES_USER}
       - DATABASE_PASSWORD=${POSTGRES_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - JWT_EXPIRATION=${JWT_EXPIRATION}
     logging:
       driver: "json-file"
       options:

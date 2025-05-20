@@ -8,7 +8,7 @@ import { Tenant } from './entities/tenant.entity';
 export class TenantsController {
   constructor(private readonly tenantsService: TenantsService) {}
 
-  @Post()
+  @Post('/create')
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createTenantDto: CreateTenantDto): Promise<Tenant> {
     return this.tenantsService.create(createTenantDto);
