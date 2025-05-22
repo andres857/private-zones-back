@@ -43,6 +43,11 @@ export class GatewayPaymentController {
         return this.stripeService.findPriceById(id);
     }
 
+    @Post('prices')
+    async createPrice(@Param('id') id: string): Promise<Stripe.Price> {
+        return this.stripeService.findPriceById(id);
+    }
+
     @Post('create-checkout-session')
     async createCheckoutSession(@Body() body: { productId: string }) {
         if (!body.productId) {
@@ -53,5 +58,17 @@ export class GatewayPaymentController {
         
         // Utilizar el método del servicio directamente
         return this.stripeService.createCheckoutSession(body.productId);
+    }
+
+    @Post('list-customer-payments')
+    async getListCustomerPayments(@Body() body: { cus: string }) {
+        if (!body.cus) {
+            throw new BadRequestException('El ID del customer es requerido');
+        }
+        
+        this.logger.log(`Solicitud de listado para customer: ${body.cus}`);
+        
+        // Utilizar el método del servicio directamente
+        return this.stripeService.listPaymentMethods(body.cus);
     }
 }

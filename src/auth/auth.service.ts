@@ -30,9 +30,9 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
     
-    // if (!user.isActive) {
-    //   throw new ForbiddenException('User account is inactive');
-    // }
+    if (!user.isActive) {
+      throw new ForbiddenException('User account is inactive');
+    }
     
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
@@ -52,6 +52,14 @@ export class AuthService {
     const existingUser = await this.usersService.findByEmailRegister(registerDto.email);
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
+    }
+
+    if(!registerDto.name || !registerDto.lastName) {
+      throw new BadRequestException('El nombre y apellido son obligatorios');
+    }else if (registerDto.password) {
+      throw new BadRequestException('La contraseña es obligatoria');
+    }else if (registerDto.tenantId) {
+      throw new BadRequestException('El tenantId es obligatorio');
     }
   
     const roleName = registerDto.role; // Ya es de tipo UserRole por la validación

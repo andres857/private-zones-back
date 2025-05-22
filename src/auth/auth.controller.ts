@@ -1,5 +1,5 @@
 // src/auth/auth.controller.ts
-import { Controller, Post, Body, UseGuards, Req, HttpCode, HttpStatus, Get } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, HttpCode, HttpStatus, Get, UseInterceptors } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto, RefreshTokenDto, TokensResponseDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -8,6 +8,8 @@ import { Public } from './decorators/public.decorator';
 import { Request } from 'express';
 import { GetUser } from './decorators/get-user.decorator';
 import { User } from './entities/user.entity';
+import { DefaultRoleInterceptor } from './interceptors/default-role.interceptor';
+import { UserRole } from 'src/common/enums/user-role.enum';
 
 @Controller('auth')
 export class AuthController {
@@ -21,6 +23,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseInterceptors(new DefaultRoleInterceptor(UserRole.USER))
   @Post('register')
   async register(@Body() registerDto: RegisterDto, @Req() req: Request): Promise<TokensResponseDto> {
     return this.authService.register(registerDto, req);

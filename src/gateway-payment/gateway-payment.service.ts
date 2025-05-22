@@ -2,6 +2,7 @@ import { Injectable, Inject, NotFoundException, InternalServerErrorException, Ba
 import Stripe from 'stripe';
 import { ConfigService } from '@nestjs/config';
 import { CreateProductDto } from './dto/create-product.dto';
+import { CreatePriceDto } from './dto/create-price.dto';
 
 @Injectable()
 export class StripeService {
@@ -107,6 +108,47 @@ export class StripeService {
         throw new NotFoundException(`Precio con ID ${id} no encontrado en Stripe.`);
       }
       throw new InternalServerErrorException('Error al obtener el precio de Stripe.');
+    }
+  }
+
+  // async createPrice(createPriceDto: CreatePriceDto): Promise<Stripe.Price> {
+  //   const { unit_amount, currency, recurring, product } = createPriceDto;
+  //   try {
+  //     this.logger.log(`Creando precio para el producto ID: ${product}`);
+  //     const price = await this.stripe.prices.create({
+  //       unit_amount,
+  //       currency,
+  //       recurring,
+  //       product,
+  //     });
+  //     this.logger.log(`Precio creado con ID: ${price.id}`);
+  //     return price;
+  //   }
+  //   catch (error) {
+  //     this.logger.error('Error creando precio en Stripe:', error.message);
+  //     if (error instanceof Stripe.errors.StripeError) {
+  //       throw new BadRequestException(`Error de Stripe: ${error.message}`);
+  //     }
+  //     throw new InternalServerErrorException('Error interno al procesar con Stripe.');
+  //   }
+  // }
+
+  async listPaymentMethods(customerId: string): Promise<Stripe.ApiList<Stripe.PaymentMethod>> {
+    try {
+      this.logger.log(`Consultando métodos de pago para el cliente ID: ${customerId}`);
+      const paymentMethods = await this.stripe.paymentMethods.list({
+        customer: customerId,
+      });
+      if (!paymentMethods) {
+        throw new NotFoundException(`Métodos de pago para el cliente ID ${customerId} no encontrados.`);
+      }
+      return paymentMethods;
+    } catch (error) {
+      this.logger.error(`Error consultando métodos de pago para el cliente ${customerId} en Stripe:`, error.message);
+      if (error instanceof Stripe.errors.StripeError && error.statusCode === 404) {
+        throw new NotFoundException(`Métodos de pago para el cliente ID ${customerId} no encontrados en Stripe.`);
+      }
+      throw new InternalServerErrorException('Error al obtener métodos de pago de Stripe.');
     }
   }
 
