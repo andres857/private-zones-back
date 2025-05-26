@@ -52,7 +52,7 @@ export class UsersService {
   async findByEmail(email: string): Promise<User> {
     const user = await this.usersRepository.findOne({
       where: { email },
-      select: ['id', 'email', 'name'],
+      select: ['id', 'email', 'password', 'name', 'isActive'],
     });
   
     if (!user) {

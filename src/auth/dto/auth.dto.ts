@@ -1,4 +1,4 @@
-import { IsEmpty, IsNotEmpty, IsString, MinLength, IsEmail, IsEnum, IsUUID } from "class-validator";
+import { IsEmpty, IsNotEmpty, IsString, MinLength, IsEmail, IsEnum, IsUUID, IsOptional } from "class-validator";
 import { UserRole } from "src/common/enums/user-role.enum";
 
 // src/auth/dto/auth.dto.ts
@@ -26,7 +26,7 @@ export class RegisterDto {
     password: string;
   
     @IsNotEmpty()
-    @IsUUID()
+    // @IsUUID()
     tenantId: string;
   
     @IsNotEmpty()
@@ -47,4 +47,29 @@ export class TokensResponseDto {
   
 export class RefreshTokenDto {
     refreshToken: string;
+}
+
+export class LogoutDto {
+  @IsString()
+  refreshToken: string;
+}
+
+export class LogoutAllDto {
+  @IsOptional()
+  @IsString()
+  currentRefreshToken?: string;
+}
+
+export class LogoutResponseDto {
+  success: boolean;
+  message: string;
+}
+
+export class ActiveSessionDto {
+  id: string;
+  deviceInfo: string;
+  ipAddress: string;
+  createdAt: Date;
+  lastUsed: Date;
+  isCurrent: boolean;
 }

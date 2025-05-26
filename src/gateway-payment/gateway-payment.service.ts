@@ -183,7 +183,7 @@ export class StripeService {
           ],
           // Usar el modo 'subscription' si el precio es recurrente, de lo contrario 'payment'
           mode: isRecurring ? 'subscription' : 'payment',
-          currency: 'cop',
+          currency: 'usd',
           success_url: `${this.frontendUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${this.frontendUrl}/checkout/canceled`,
         });
@@ -206,7 +206,7 @@ export class StripeService {
           line_items: [
             {
               price_data: {
-                currency: 'cop',
+                currency: 'usd',
                 product_data: {
                   name: product.name,
                   description: product.description || '',

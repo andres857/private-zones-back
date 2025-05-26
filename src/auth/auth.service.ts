@@ -1,9 +1,9 @@
 // src/auth/auth.service.ts
-import { Injectable, UnauthorizedException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, ConflictException, ForbiddenException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not } from 'typeorm';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
 import { RefreshToken } from './entities/token.entity';
@@ -12,6 +12,7 @@ import { LoginDto, RegisterDto, TokensResponseDto, RefreshTokenDto } from './dto
 import { v4 as uuidv4 } from 'uuid';
 import { Request } from 'express';
 import { RolesService } from 'src/roles/roles.service';
+import { TenantsService } from 'src/tenants/tenants.service';
 
 @Injectable()
 export class AuthService {
@@ -22,10 +23,15 @@ export class AuthService {
     private configService: ConfigService,
     @InjectRepository(RefreshToken)
     private refreshTokenRepository: Repository<RefreshToken>,
+
+    private readonly tenantsService: TenantsService,
   ) {}
+  private readonly logger = new Logger(AuthService.name);
 
   async validateUser(email: string, password: string): Promise<any> {
     const user = await this.usersService.findByEmail(email);
+
+    this.logger.log(JSON.stringify(user));
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -33,6 +39,8 @@ export class AuthService {
     if (!user.isActive) {
       throw new ForbiddenException('User account is inactive');
     }
+
+    this.logger.log('Validando contrasena para el usuario:', user.email);
     
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
@@ -42,25 +50,27 @@ export class AuthService {
     return user;
   }
 
-  async login(loginDto: LoginDto, req: Request): Promise<TokensResponseDto> {
-    const user = await this.validateUser(loginDto.email, loginDto.password);
+  async login(req: Request): Promise<TokensResponseDto> {
+    const user = await this.validateUser(req.body.email, req.body.password);
     return this.generateTokens(user, req);
   }
 
-  async register(registerDto: RegisterDto, req: Request): Promise<TokensResponseDto> {
-    // Check if user already exists
+  async register(registerDto: RegisterDto, req: Request): Promise<{msg: string}> {
+    // Revisar si usuario ya existe
     const existingUser = await this.usersService.findByEmailRegister(registerDto.email);
     if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+      throw new ConflictException('Este usuario ya existe');
     }
 
     if(!registerDto.name || !registerDto.lastName) {
       throw new BadRequestException('El nombre y apellido son obligatorios');
-    }else if (registerDto.password) {
+    }else if (!registerDto.password) {
       throw new BadRequestException('La contraseña es obligatoria');
-    }else if (registerDto.tenantId) {
+    }else if (!registerDto.tenantId) {
       throw new BadRequestException('El tenantId es obligatorio');
     }
+
+    const tenantId = registerDto.tenantId; // tomar tenant del dto
   
     const roleName = registerDto.role; // Ya es de tipo UserRole por la validación
   
@@ -86,13 +96,16 @@ export class AuthService {
         password: registerDto.password,
         name: registerDto.name,
         lastName: registerDto.lastName,
-        tenantId: registerDto.tenantId,
+        tenantId: tenantId,
     };
 
     // Pasar los role entities por separado
     const newUser = await this.usersService.create(userData, [roleEntity]);
   
-    return this.generateTokens(newUser, req);
+    // return this.generateTokens(newUser, req);
+    return {
+      msg: 'Usuario creado correctamente',
+    };
   }
   
 
@@ -108,7 +121,7 @@ export class AuthService {
         throw new UnauthorizedException('User not found');
       }
 
-      // Verify the token exists in database and is not revoked
+      // Verificar que el token existe en la base de datos y no está revocado
       const isValid = await this.validateRefreshToken(refreshTokenDto.refreshToken, user.id);
       if (!isValid) {
         // The token is valid (signature, expiration) but not in our DB or is revoked
@@ -130,22 +143,64 @@ export class AuthService {
     }
   }
 
-  async logout(refreshToken: string): Promise<boolean> {
+  async logout(refreshToken: string, ipAddress?: string): Promise<boolean> {
     if (!refreshToken) {
-      return true; // Nothing to do
+      this.logger.warn('Intento de cierre de sesión sin refresh token');
+      return true;
     }
     
     try {
-      await this.revokeRefreshToken(refreshToken);
+      this.logger.log(`Intento de cierre de sesión para un token de actualización que termina en: ...${refreshToken.slice(-8)}`);
+      
+      // Verificar que el token existe y no está ya revocado
+      const tokenRecord = await this.refreshTokenRepository.findOne({
+        where: { token: refreshToken, isRevoked: false },
+        relations: ['user']
+      });
+
+      if (!tokenRecord) {
+        this.logger.warn(`Refresh token no encontrada o ya revocada: ...${refreshToken.slice(-8)}`);
+        return true; // Token ya no válido, se considera logout exitoso
+      }
+
+      // Revocar el token
+      await this.revokeRefreshToken(refreshToken, ipAddress);
+      
+      this.logger.log(`Usuario cerrado con éxito: ${tokenRecord.user.email}`);
       return true;
+      
     } catch (error) {
+      this.logger.error('Error al cerrar la sesión:', error);
       return false;
     }
   }
 
-  async logoutAll(userId: string): Promise<boolean> {
-    await this.revokeAllUserTokens(userId);
-    return true;
+  async logoutFromAllDevices(userId: string, currentRefreshToken?: string): Promise<boolean> {
+    try {
+      this.logger.log(`Logging out user from all devices: ${userId}`);
+      
+      const updateData: Partial<RefreshToken> = {
+        isRevoked: true,
+        revokedAt: new Date(),
+      };
+
+      // Revocar todos los tokens del usuario excepto el actual (si se proporciona)
+      const whereCondition: any = {
+        userId,
+        isRevoked: false,
+      };
+
+      if (currentRefreshToken) {
+        whereCondition.token = Not(currentRefreshToken);
+      }
+
+      await this.refreshTokenRepository.update(whereCondition, updateData);
+      
+      return true;
+    } catch (error) {
+      this.logger.error('Error during logout from all devices:', error);
+      return false;
+    }
   }
 
   private async generateTokens(user: User, req: Request): Promise<TokensResponseDto> {
@@ -232,11 +287,24 @@ export class AuthService {
     return true;
   }
 
-  private async revokeRefreshToken(token: string): Promise<void> {
-    await this.refreshTokenRepository.update(
-      { token },
-      { isRevoked: true }
+  private async revokeRefreshToken(token: string, ipAddress?: string): Promise<void> {
+    const updateData: Partial<RefreshToken> = {
+      isRevoked: true,
+      revokedAt: new Date(), // Agregar timestamp de revocación
+    };
+
+    if (ipAddress) {
+      updateData.revokedFromIp = ipAddress;
+    }
+
+    const result = await this.refreshTokenRepository.update(
+      { token, isRevoked: false }, // Solo actualizar si no está ya revocado
+      updateData
     );
+
+    if (result.affected === 0) {
+      throw new Error('Refresh token not found or already revoked');
+    }
   }
 
   private async revokeAllUserTokens(userId: string): Promise<void> {

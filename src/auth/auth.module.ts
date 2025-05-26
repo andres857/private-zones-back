@@ -12,6 +12,7 @@ import { UsersModule } from '../users/users.module';
 import { User } from './entities/user.entity';
 import { RolesModule } from '../roles/roles.module';
 import { RefreshToken } from './entities/token.entity';
+import { TenantsModule } from 'src/tenants/tenants.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { RefreshToken } from './entities/token.entity';
     TypeOrmModule.forFeature([User, RefreshToken]),
     UsersModule,
     RolesModule,
+    TenantsModule
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, JwtRefreshStrategy],

@@ -1,7 +1,7 @@
 // src/auth/auth.controller.ts
 import { Controller, Post, Body, UseGuards, Req, HttpCode, HttpStatus, Get, UseInterceptors } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, RefreshTokenDto, TokensResponseDto } from './dto/auth.dto';
+import { LoginDto, RegisterDto, RefreshTokenDto, TokensResponseDto, LogoutDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { Public } from './decorators/public.decorator';
@@ -10,6 +10,7 @@ import { GetUser } from './decorators/get-user.decorator';
 import { User } from './entities/user.entity';
 import { DefaultRoleInterceptor } from './interceptors/default-role.interceptor';
 import { UserRole } from 'src/common/enums/user-role.enum';
+import { TenantValidationInterceptor } from './interceptors/tenant-validation.interceptor';
 
 @Controller('auth')
 export class AuthController {
@@ -18,14 +19,18 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() loginDto: LoginDto, @Req() req: Request): Promise<TokensResponseDto> {
-    return this.authService.login(loginDto, req);
+  async login(@Req() req: Request): Promise<TokensResponseDto> {
+    console.log('AuthController - login called with body:', req.body);
+    return this.authService.login(req);
   }
 
   @Public()
-  @UseInterceptors(new DefaultRoleInterceptor(UserRole.USER))
+  @UseInterceptors(
+    new DefaultRoleInterceptor(UserRole.USER),
+    TenantValidationInterceptor // Interceptor de tenant
+  )
   @Post('register')
-  async register(@Body() registerDto: RegisterDto, @Req() req: Request): Promise<TokensResponseDto> {
+  async register(@Body() registerDto: RegisterDto, @Req() req: Request): Promise<{msg: string}> {
     return this.authService.register(registerDto, req);
   }
 
@@ -36,19 +41,44 @@ export class AuthController {
     return this.authService.refresh(refreshTokenDto, req);
   }
 
+  @UseInterceptors(
+    TenantValidationInterceptor // Interceptor de tenant
+  )
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(@Body() { refreshToken }: RefreshTokenDto): Promise<{ success: boolean }> {
-    const success = await this.authService.logout(refreshToken);
-    return { success };
+  async logout(
+    @Body() logoutDto: LogoutDto,
+    @Req() request: Request
+  ): Promise<{ success: boolean; message: string }> {
+    const { refreshToken } = logoutDto;
+    const ipAddress = this.getClientIp(request);
+    
+    const success = await this.authService.logout(refreshToken, ipAddress);
+    
+    return {
+      success,
+      message: success ? 'Cierre de sesión con éxito' : 'Error de cierre de sesión'
+    };
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('logout-all')
   @HttpCode(HttpStatus.OK)
-  async logoutAll(@GetUser() user: User): Promise<{ success: boolean }> {
-    const success = await this.authService.logoutAll(user.id);
-    return { success };
+  @UseGuards(JwtAuthGuard) // Requiere estar autenticado
+  async logoutFromAllDevices(
+    @Body() body: { currentRefreshToken?: string },
+    @Req() request: any
+  ): Promise<{ success: boolean; message: string }> {
+    const userId = request.user.id;
+    const { currentRefreshToken } = body;
+    
+    const success = await this.authService.logoutFromAllDevices(userId, currentRefreshToken);
+    
+    return {
+      success,
+      message: success 
+        ? 'Successfully logged out from all devices' 
+        : 'Failed to logout from all devices'
+    };
   }
 
   @UseGuards(JwtAuthGuard)
@@ -63,5 +93,15 @@ export class AuthController {
       name: user.name,
       role: roleNames,
     };
+  }
+
+  private getClientIp(request: Request): string {
+    return (
+      (request.headers['x-forwarded-for'] as string)?.split(',')[0] ||
+      (request.headers['x-real-ip'] as string) ||
+      request.connection?.remoteAddress ||
+      request.socket?.remoteAddress ||
+      'unknown'
+    );
   }
 }

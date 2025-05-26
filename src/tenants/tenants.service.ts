@@ -53,8 +53,9 @@ export class TenantsService {
   }
 
   async findByDomain(domain: string): Promise<Tenant | null> {
+    console.log('Finding tenant by domain:', domain);
     return this.tenantRepository.findOne({
-      where: { domain },
+      where: { domain: domain },
       relations: ['config', 'contactInfo']
     });
   }
