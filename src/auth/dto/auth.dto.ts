@@ -52,6 +52,14 @@ export class RefreshTokenDto {
 export class LogoutDto {
   @IsString()
   refreshToken: string;
+  
+  @IsOptional()
+  @IsUUID()
+  tenantId?: string;
+
+  @IsOptional()
+  @IsString()
+  tenantDomain?: string;
 }
 
 export class LogoutAllDto {

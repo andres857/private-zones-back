@@ -42,8 +42,8 @@ import {
   
         // Agregar información del tenant al request para uso posterior
         request.tenant = tenant;
-        request.tenantId = tenant.id;
-        request.tenantDomain = tenant.domain;
+        request.body.tenantId = tenant.id;
+        request.body.tenantDomain = tenant.domain;
   
         return next.handle();
   

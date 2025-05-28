@@ -71,6 +71,8 @@ export class AuthService {
     }
 
     const tenantId = registerDto.tenantId; // tomar tenant del dto
+
+    this.logger.log(`Registrando usuario para el tenant: ${tenantId}`);
   
     const roleName = registerDto.role; // Ya es de tipo UserRole por la validación
   
