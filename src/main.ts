@@ -17,10 +17,9 @@ async function bootstrap() {
   // Configurar CORS
   app.enableCors({
     origin: [
-      'http://localhost:5173',
       'http://localhost:3000', // Por si usas otro puerto para testing
-      'http://devel1.klmsystem.test:5173', // Tu dominio personalizado
-      'http://devel1.klmsystem.test', // Sin puerto también
+      'http://devel.klmsystem.test:5173', // Tu dominio personalizado
+      'http://devel.klmsystem.test', // Sin puerto también
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: [
