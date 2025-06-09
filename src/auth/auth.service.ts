@@ -56,6 +56,9 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto, req: Request): Promise<{msg: string}> {
+
+    this.logger.log(`Logs register: ${RegisterDto}`);
+
     // Revisar si usuario ya existe
     const existingUser = await this.usersService.findByEmailRegister(registerDto.email);
     if (existingUser) {

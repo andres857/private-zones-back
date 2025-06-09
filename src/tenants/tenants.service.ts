@@ -54,10 +54,17 @@ export class TenantsService {
 
   async findByDomain(domain: string): Promise<Tenant | null> {
     console.log('Finding tenant by domain:', domain);
-    return this.tenantRepository.findOne({
+    const tenant = await this.tenantRepository.findOne({
       where: { domain: domain },
       relations: ['config', 'contactInfo']
     });
+    console.log('Found tenant:', tenant);
+    if (!tenant) {  
+      console.log('No tenant found for domain:', domain);
+      return null;
+    }
+    
+    return tenant;
   }
 
   // Método para verificar si un tenant está activo
