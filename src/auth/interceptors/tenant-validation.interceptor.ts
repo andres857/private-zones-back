@@ -43,7 +43,7 @@ import {
         // Agregar información del tenant al request para uso posterior
         request.tenant = tenant;
         request.body.tenantId = tenant.id;
-        request.body.tenantDomain = tenant.domain;
+        // request.body.tenantDomain = tenant.domain;
   
         return next.handle();
   
@@ -81,7 +81,9 @@ import {
       }
   
       // 3. Body del request
-      const queryDomain = request.query?.domain || request.query?.tenantDomain;
+      const queryDomain = request.query?.domain || request.query?.tenantDomain || request.body?.tenantId;
+      this.logger.debug(`Domain extracted from origin: ${queryDomain}`);
+
       if (queryDomain) {
         this.logger.debug(`Domain from query parameter: ${queryDomain}`);
         return queryDomain;

@@ -8,6 +8,8 @@ import { TenantsModule } from './tenants/tenants.module';
 import { RolesModule } from './roles/roles.module';
 import { SendMailsModule } from './send-mails/send-mails.module';
 import { CoursesModule } from './courses/courses.module';
+import { EventsGateway } from './events/events.gateway'; 
+
 
 
 import { User } from './users/entities/user.entity';
@@ -45,6 +47,6 @@ import { Course } from './courses/entities/course.entity';
     CoursesModule
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, EventsGateway],
 })
 export class AppModule {}
