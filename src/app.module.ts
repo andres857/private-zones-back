@@ -8,19 +8,20 @@ import { TenantsModule } from './tenants/tenants.module';
 import { RolesModule } from './roles/roles.module';
 import { SendMailsModule } from './send-mails/send-mails.module';
 import { CoursesModule } from './courses/courses.module';
+import { AuthModule } from './auth/auth.module';
+import { GatewayPaymentModule } from './gateway-payment/gateway-payment.module';
+import { PrivateZonesModule } from './private-zones/private-zones.module'
+
 import { EventsGateway } from './events/events.gateway'; 
-
-
 
 import { User } from './users/entities/user.entity';
 import { Tenant } from './tenants/entities/tenant.entity';
 import { TenantConfig } from './tenants/entities/tenant-config.entity';
 import { TenantContactInfo } from './tenants/entities/tenant-contact-info.entity';
 import { Role } from './roles/entities/role.entity';
-import { GatewayPaymentModule } from './gateway-payment/gateway-payment.module';
-import { AuthModule } from './auth/auth.module';
 import { RefreshToken } from './auth/entities/token.entity';
-import { Course } from './courses/entities/course.entity';
+import { Course } from './private-zones/entities/course.entity';
+
 
 @Module({
   imports: [
@@ -44,7 +45,8 @@ import { Course } from './courses/entities/course.entity';
     SendMailsModule,
     GatewayPaymentModule,
     AuthModule,
-    CoursesModule
+    CoursesModule,
+    PrivateZonesModule
   ],
   controllers: [AppController],
   providers: [AppService, EventsGateway],
