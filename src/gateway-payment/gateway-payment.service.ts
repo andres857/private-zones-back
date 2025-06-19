@@ -1,7 +1,7 @@
 import { Injectable, Inject, NotFoundException, InternalServerErrorException, BadRequestException, Logger } from '@nestjs/common';
 import Stripe from 'stripe';
 import { ConfigService } from '@nestjs/config';
-import { CreateProductDto } from './dto/create-product.dto';
+import { ClubDto, CreateProductDto } from './dto/create-product.dto';
 import { CreatePriceDto } from './dto/create-price.dto';
 
 @Injectable()
@@ -18,8 +18,8 @@ export class StripeService {
     this.frontendUrl = 'http://localhost:5173';
   }
 
-  async createProductAndPrice(createProductDto: CreateProductDto): Promise<{ product: Stripe.Product; price: Stripe.Price }> {
-    const { name, description, unit_amount, currency, interval } = createProductDto;
+  async createProductAndPrice(createProductDto: CreateProductDto): Promise<{ product: Stripe.Product; price: Stripe.Price}> {
+    const { name, description, unit_amount, currency, interval } = createProductDto.payment_info;
 
     try {
       this.logger.log(`Creando producto: ${name}`);
@@ -40,6 +40,11 @@ export class StripeService {
         product: product.id,
       });
       this.logger.log(`Precio creado con ID: ${price.id} para producto ${product.id}`);
+
+      if (!product || !price) {
+        
+        this.logger.log(`Producto y precio creados exitosamente: Producto ID ${product.id}, Precio ID ${price.id}`);
+      }
 
       return { product, price };
     } catch (error) {
