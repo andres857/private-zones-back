@@ -9,6 +9,7 @@ import { TenantConfig } from './tenant-config.entity';
 import { TenantContactInfo } from './tenant-contact-info.entity';
 import { User } from '../../users/entities/user.entity';
 import { TenantProduct } from './tenant-product.entity';
+import { Subscription } from './suscription-tenant.entity';
 
 @Entity()
 export class Tenant {
@@ -48,5 +49,8 @@ export class Tenant {
 
   @OneToMany(() => TenantProduct, product => product.tenant)
   products: TenantProduct[];
+
+  @OneToMany(() => Subscription, subscription => subscription.tenant)
+  subscriptions: Subscription[];
 
 }

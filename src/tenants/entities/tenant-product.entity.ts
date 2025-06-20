@@ -3,11 +3,13 @@ import {
   Column,
   PrimaryGeneratedColumn,
   ManyToOne,
+  OneToMany,
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn
 } from 'typeorm';
 import { Tenant } from './tenant.entity';
+import { Subscription } from './suscription-tenant.entity';
 
 @Entity()
 export class TenantProduct {
@@ -82,6 +84,9 @@ export class TenantProduct {
 
   @Column({ default: 'active' })
   status: string; // 'active', 'inactive', 'deleted'
+
+  @OneToMany(() => Subscription, subscription => subscription.product)
+  subscriptions: Subscription[];
 
   @CreateDateColumn()
   createdAt: Date;

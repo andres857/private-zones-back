@@ -8,6 +8,9 @@ import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { TenantProduct } from './entities/tenant-product.entity';
 import { CreateTenantProductDto } from './dto/create-tenant-product.dto';
+import { Subscription } from './entities/suscription-tenant.entity';
+import { LaravelWebhookService } from './laravel-webhook.service';
+import { CreateSubscriptionDto } from './dto/suscription-tenant-user.dto';
 
 @Injectable()
 export class TenantsService {
@@ -20,6 +23,9 @@ export class TenantsService {
     private tenantRepository: Repository<Tenant>,
     @InjectRepository(TenantProduct)
     private tenantProductRepository: Repository<TenantProduct>,
+    @InjectRepository(Subscription)
+    private subscriptionRepository: Repository<Subscription>,
+    private laravelWebhookService: LaravelWebhookService,
   ) { }
 
   async create(dto: CreateTenantDto): Promise<Tenant> {
@@ -50,6 +56,202 @@ export class TenantsService {
       throw new NotFoundException(`Tenant con ID ${id} no encontrado`);
     }
     return tenant;
+  }
+
+  async checkClientSubscriptionStatus(clientId: string) {
+    // Buscar el tenant por client_id_mz
+    const tenant = await this.tenantRepository.findOne({
+      where: { client_id_mz: clientId },
+      relations: ['subscriptions', 'subscriptions.product']
+    });
+
+    if (!tenant) {
+      return {
+        hasActiveSubscription: false,
+        subscription: null,
+        expiresAt: null,
+        planName: null,
+        stripeStatus: null,
+        trialInfo: null
+      };
+    }
+
+    // Buscar suscripciones activas
+    const activeSubscriptions = tenant.subscriptions.filter(sub => sub.isActive());
+
+    if (activeSubscriptions.length === 0) {
+      return {
+        hasActiveSubscription: false,
+        subscription: null,
+        expiresAt: null,
+        planName: null,
+        stripeStatus: null,
+        trialInfo: null
+      };
+    }
+
+    // Tomar la primera suscripción activa (podrías tener lógica para múltiples)
+    const subscription = activeSubscriptions[0];
+
+    // Verificar estado en Stripe para estar seguros
+    const stripeStatus = await this.verifySubscriptionWithStripe(subscription.stripe_subscription_id);
+
+    // Si Stripe dice que no está activa, actualizar nuestro registro
+    if (!this.isStripeStatusActive(stripeStatus.status)) {
+      subscription.status = stripeStatus.status;
+      subscription.canceled_at = stripeStatus.canceled_at ? new Date(stripeStatus.canceled_at * 1000) : null;
+      subscription.ended_at = stripeStatus.ended_at ? new Date(stripeStatus.ended_at * 1000) : null;
+      const updatedSubscription = await this.subscriptionRepository.save(subscription);
+
+      // Notificar a Laravel sobre el cambio de estado
+      await this.laravelWebhookService.notifySubscriptionUpdated(
+        tenant.client_id_mz,
+        updatedSubscription
+      );
+
+      return {
+        hasActiveSubscription: false,
+        subscription: subscription,
+        expiresAt: subscription.current_period_end,
+        planName: subscription.product?.title,
+        stripeStatus: stripeStatus.status,
+        trialInfo: subscription.isInTrial() ? {
+          isInTrial: true,
+          trialEnd: subscription.trial_end
+        } : null
+      };
+    }
+
+    return {
+      hasActiveSubscription: true,
+      subscription: {
+        id: subscription.id,
+        status: subscription.status,
+        current_period_start: subscription.current_period_start,
+        current_period_end: subscription.current_period_end,
+        amount: subscription.amount,
+        currency: subscription.currency,
+        interval: subscription.interval,
+        interval_count: subscription.interval_count
+      },
+      expiresAt: subscription.current_period_end,
+      planName: subscription.product?.title,
+      stripeStatus: stripeStatus.status,
+      trialInfo: subscription.isInTrial() ? {
+        isInTrial: true,
+        trialEnd: subscription.trial_end
+      } : null
+    };
+  }
+
+  // async createSubscriptionFromStripe(createSubscriptionDto: CreateSubscriptionDto) {
+  //   // Buscar el tenant
+  //   const tenant = await this.tenantRepository.findOne({
+  //     where: { client_id_mz: createSubscriptionDto.client_id_mz }
+  //   });
+
+  //   if (!tenant) {
+  //     throw new Error('Tenant not found');
+  //   }
+
+  //   // Buscar el producto
+  //   const product = await this.tenantProductRepository.findOne({
+  //     where: { 
+  //       tenant_id: tenant.id,
+  //       laravel_plan_id: createSubscriptionDto.laravel_plan_id 
+  //     }
+  //   });
+
+  //   if (!product) {
+  //     throw new Error('Product not found');
+  //   }
+
+  //   // Verificar que no exista ya una suscripción con el mismo stripe_subscription_id
+  //   const existingSubscription = await this.subscriptionRepository.findOne({
+  //     where: { stripe_subscription_id: createSubscriptionDto.stripe_subscription_id }
+  //   });
+
+  //   if (existingSubscription) {
+  //     return existingSubscription;
+  //   }
+
+  //   // Crear nueva suscripción
+  //   const subscription = this.subscriptionRepository.create({
+  //     tenant: { id: tenant.id },
+  //     product: { id: product.id },
+  //     laravel_user_id: createSubscriptionDto.laravel_user_id,
+  //     user_email: createSubscriptionDto.user_email,
+  //     stripe_subscription_id: createSubscriptionDto.stripe_subscription_id,
+  //     stripe_customer_id: createSubscriptionDto.stripe_customer_id,
+  //     stripe_price_id: createSubscriptionDto.stripe_price_id,
+  //     status: createSubscriptionDto.status,
+  //     current_period_start: new Date(createSubscriptionDto.current_period_start * 1000),
+  //     current_period_end: new Date(createSubscriptionDto.current_period_end * 1000),
+  //     trial_start: createSubscriptionDto.trial_start ? new Date(createSubscriptionDto.trial_start * 1000) : null,
+  //     trial_end: createSubscriptionDto.trial_end ? new Date(createSubscriptionDto.trial_end * 1000) : null,
+  //     amount: createSubscriptionDto.amount,
+  //     currency: createSubscriptionDto.currency,
+  //     interval: createSubscriptionDto.interval,
+  //     interval_count: createSubscriptionDto.interval_count,
+  //     stripe_metadata: createSubscriptionDto.metadata
+  //   });
+
+  //   return this.subscriptionRepository.save(subscription);
+  // }
+
+  async updateSubscriptionFromStripe(stripeSubscriptionId: string, updateData: any) {
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { stripe_subscription_id: stripeSubscriptionId },
+      relations: ['tenant']
+    });
+
+    if (!subscription) {
+      throw new Error('Subscription not found');
+    }
+
+    // Actualizar campos
+    Object.assign(subscription, {
+      status: updateData.status,
+      current_period_start: new Date(updateData.current_period_start * 1000),
+      current_period_end: new Date(updateData.current_period_end * 1000),
+      canceled_at: updateData.canceled_at ? new Date(updateData.canceled_at * 1000) : null,
+      ended_at: updateData.ended_at ? new Date(updateData.ended_at * 1000) : null,
+      stripe_metadata: updateData.metadata
+    });
+
+    const updatedSubscription = await this.subscriptionRepository.save(subscription);
+
+    // Notificar a Laravel usando la relación tenant
+    if (subscription.tenant && subscription.tenant.client_id_mz) {
+      await this.laravelWebhookService.notifySubscriptionUpdated(
+        subscription.tenant.client_id_mz,
+        updatedSubscription
+      );
+    }
+
+    return updatedSubscription;
+  }
+
+  async getTenantSubscriptions(tenantId: string) {
+    return this.subscriptionRepository.find({
+      where: { tenant: { id: tenantId } },
+      relations: ['product', 'tenant'],
+      order: { createdAt: 'DESC' }
+    });
+  }
+
+  private async verifySubscriptionWithStripe(stripeSubscriptionId: string) {
+    try {
+      const subscription = await this.stripe.subscriptions.retrieve(stripeSubscriptionId);
+      return subscription;
+    } catch (error) {
+      console.error('Error verifying subscription with Stripe:', error);
+      throw error;
+    }
+  }
+
+  private isStripeStatusActive(status: string): boolean {
+    return ['active', 'trialing'].includes(status);
   }
 
   async findByClientIdMz(clientIdMz: string): Promise<Tenant | null> {
