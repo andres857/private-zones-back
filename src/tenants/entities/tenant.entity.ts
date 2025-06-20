@@ -8,6 +8,7 @@ import {
 import { TenantConfig } from './tenant-config.entity';
 import { TenantContactInfo } from './tenant-contact-info.entity';
 import { User } from '../../users/entities/user.entity';
+import { TenantProduct } from './tenant-product.entity';
 
 @Entity()
 export class Tenant {
@@ -29,6 +30,10 @@ export class Tenant {
   @Column({ nullable: true })
   plan: string; // "free", "pro", etc.
 
+  // Nueva columna para relacionar con client_id de Laravel
+  @Column({ nullable: true, unique: true })
+  client_id_mz: string;
+
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
@@ -40,4 +45,8 @@ export class Tenant {
 
   @OneToMany(() => User, user => user.tenant)
   users: User[];
+
+  @OneToMany(() => TenantProduct, product => product.tenant)
+  products: TenantProduct[];
+
 }

@@ -4,12 +4,16 @@ import { Repository, DeleteResult } from 'typeorm';
 import { Tenant } from './entities/tenant.entity';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
+import { TenantProduct } from './entities/tenant-product.entity';
+import { CreateTenantProductDto } from './dto/create-tenant-product.dto';
 
 @Injectable()
 export class TenantsService {
   constructor(
     @InjectRepository(Tenant)
     private tenantRepository: Repository<Tenant>,
+    @InjectRepository(TenantProduct)
+    private tenantProductRepository: Repository<TenantProduct>,
   ) { }
 
   async create(dto: CreateTenantDto): Promise<Tenant> {
@@ -40,6 +44,101 @@ export class TenantsService {
       throw new NotFoundException(`Tenant con ID ${id} no encontrado`);
     }
     return tenant;
+  }
+
+  async findByClientIdMz(clientIdMz: string): Promise<Tenant | null> {
+    return this.tenantRepository.findOne({ 
+      where: { client_id_mz: clientIdMz },
+      relations: ['products']
+    });
+  }
+
+  async createTenantFromClient(createTenantProductDto: CreateTenantProductDto): Promise<Tenant> {
+    const tenant = this.tenantRepository.create({
+      client_id_mz: createTenantProductDto.client_id_mz,
+      name: createTenantProductDto.tenant_name || `Client ${createTenantProductDto.client_id_mz}`,
+      slug: createTenantProductDto.tenant_slug || `client-${createTenantProductDto.client_id_mz}`,
+      domain: createTenantProductDto.tenant_domain || `client-${createTenantProductDto.client_id_mz}.app.com`,
+      contactEmail: createTenantProductDto.tenant_contact_email,
+      plan: 'free'
+    });
+
+    return this.tenantRepository.save(tenant);
+  }
+
+  async createTenantProduct(tenantId: string, createTenantProductDto: CreateTenantProductDto): Promise<TenantProduct> {
+    // Verificar si ya existe un producto con el mismo laravel_plan_id para este tenant
+    const existingProduct = await this.tenantProductRepository.findOne({
+      where: {
+        tenant_id: tenantId,
+        laravel_plan_id: createTenantProductDto.laravel_plan_id
+      }
+    });
+
+    if (existingProduct) {
+      // Actualizar producto existente
+      Object.assign(existingProduct, {
+        title: createTenantProductDto.title,
+        description: createTenantProductDto.description,
+        price: createTenantProductDto.price,
+        currency: createTenantProductDto.currency,
+        type_payment: createTenantProductDto.type_payment,
+        recurring: createTenantProductDto.recurring,
+        features: createTenantProductDto.features,
+        max_users: createTenantProductDto.max_users,
+        max_storage_gb: createTenantProductDto.max_storage_gb,
+        modules_access: createTenantProductDto.modules_access,
+        is_active: createTenantProductDto.is_active ?? true,
+        is_popular: createTenantProductDto.is_popular ?? false,
+        is_featured: createTenantProductDto.is_featured ?? false,
+        trial_period_days: createTenantProductDto.trial_period_days,
+        setup_fee: createTenantProductDto.setup_fee,
+        status: 'active'
+      });
+
+      return this.tenantProductRepository.save(existingProduct);
+    }
+
+    // Crear nuevo producto
+    const tenantProduct = this.tenantProductRepository.create({
+      tenant_id: tenantId,
+      laravel_plan_id: createTenantProductDto.laravel_plan_id,
+      title: createTenantProductDto.title,
+      description: createTenantProductDto.description,
+      price: createTenantProductDto.price,
+      currency: createTenantProductDto.currency,
+      type_payment: createTenantProductDto.type_payment,
+      recurring: createTenantProductDto.recurring,
+      features: createTenantProductDto.features,
+      max_users: createTenantProductDto.max_users,
+      max_storage_gb: createTenantProductDto.max_storage_gb,
+      modules_access: createTenantProductDto.modules_access,
+      is_active: createTenantProductDto.is_active ?? true,
+      is_popular: createTenantProductDto.is_popular ?? false,
+      is_featured: createTenantProductDto.is_featured ?? false,
+      trial_period_days: createTenantProductDto.trial_period_days,
+      setup_fee: createTenantProductDto.setup_fee,
+      status: 'active'
+    });
+
+    const savedProduct = await this.tenantProductRepository.save(tenantProduct);
+
+    // Aquí puedes agregar la lógica para crear el producto en Stripe
+    // await this.createStripeProduct(savedProduct);
+
+    return savedProduct;
+  }
+
+  // Método para crear producto en Stripe (implementar según necesidades)
+  private async createStripeProduct(tenantProduct: TenantProduct): Promise<void> {
+    // TODO: Implementar integración con Stripe
+    // const stripeProduct = await stripe.products.create({...});
+    // const stripePrice = await stripe.prices.create({...});
+    // 
+    // tenantProduct.stripe_product_id = stripeProduct.id;
+    // tenantProduct.stripe_price_id = stripePrice.id;
+    // 
+    // await this.tenantProductRepository.save(tenantProduct);
   }
 
   async update(id: string, updateTenantDto: UpdateTenantDto): Promise<Tenant> {

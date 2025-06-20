@@ -3,6 +3,8 @@ import { TenantsService } from './tenants.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { Tenant } from './entities/tenant.entity';
+import { TenantProduct } from './entities/tenant-product.entity';
+import { CreateTenantProductDto } from './dto/create-tenant-product.dto';
 
 @Controller('tenants')
 export class TenantsController {
@@ -15,7 +17,8 @@ export class TenantsController {
     if (!domain) {
       throw new NotFoundException('Domain parameter is required');
     }
-
+    console.log(`Validating tenant for domain: ${domain}`);
+    
     try {
       const tenant = await this.tenantsService.findByDomain(domain);
       
@@ -118,5 +121,30 @@ export class TenantsController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.tenantsService.remove(id);
+  }
+
+  @Post('create-product-tenant')
+  @HttpCode(HttpStatus.CREATED)
+  async createProductTenant(@Body() createTenantProductDto: CreateTenantProductDto): Promise<TenantProduct> {
+    try {
+      // Buscar tenant por client_id_mz o crear uno nuevo
+      let tenant = await this.tenantsService.findByClientIdMz(createTenantProductDto.client_id_mz);
+      
+      if (!tenant) {
+        // Crear tenant si no existe
+        tenant = await this.tenantsService.createTenantFromClient(createTenantProductDto);
+      }
+
+      // Crear el producto para el tenant
+      const tenantProduct = await this.tenantsService.createTenantProduct(tenant.id, createTenantProductDto);
+      
+      if (!tenantProduct) {
+        throw new NotFoundException(`Product could not be created for tenant ${tenant.id}`);
+      }
+
+      return tenantProduct;
+    } catch (error) {
+      throw new NotFoundException(`Error creating tenant product: ${error.message}`);
+    }
   }
 } 
