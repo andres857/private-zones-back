@@ -22,6 +22,7 @@ import { Role } from './roles/entities/role.entity';
 import { RefreshToken } from './auth/entities/token.entity';
 import { Course } from './private-zones/entities/course.entity';
 import { TenantProduct } from './tenants/entities/tenant-product.entity';
+import { Subscription } from './tenants/entities/suscription-tenant.entity';
 
 
 @Module({
@@ -37,7 +38,7 @@ import { TenantProduct } from './tenants/entities/tenant-product.entity';
       database: process.env.DATABASE_NAME || 'net_db',
       username: process.env.DATABASE_USER || 'postgres',
       password: process.env.DATABASE_PASSWORD || 'postgres',
-      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct],
+      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, Subscription],
       synchronize: true,
     }),
     UsersModule,
