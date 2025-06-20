@@ -147,4 +147,49 @@ export class TenantsController {
       throw new NotFoundException(`Error creating tenant product: ${error.message}`);
     }
   }
+
+  @Get('check-status/:clientId')
+  async checkSubscriptionStatus(@Param('clientId') clientId: string) {
+    try {
+      const subscriptionStatus = await this.tenantsService.checkClientSubscriptionStatus(clientId);
+      
+      return {
+        has_active_subscription: subscriptionStatus.hasActiveSubscription,
+        subscription_details: subscriptionStatus.subscription,
+        expires_at: subscriptionStatus.expiresAt,
+        plan_name: subscriptionStatus.planName,
+        stripe_status: subscriptionStatus.stripeStatus,
+        trial_info: subscriptionStatus.trialInfo
+      };
+    } catch (error) {
+      throw new NotFoundException(`Error checking subscription status: ${error.message}`);
+    }
+  }
+
+  @Post('update-from-stripe/:subscriptionId')
+  @HttpCode(HttpStatus.OK)
+  async updateSubscriptionFromStripe(
+    @Param('subscriptionId') subscriptionId: string,
+    @Body() updateData: any
+  ) {
+    try {
+      const subscription = await this.tenantsService.updateSubscriptionFromStripe(
+        subscriptionId,
+        updateData
+      );
+      return subscription;
+    } catch (error) {
+      throw new NotFoundException(`Error updating subscription: ${error.message}`);
+    }
+  }
+
+  @Get('tenant/:tenantId')
+  async getTenantSubscriptions(@Param('tenantId') tenantId: string) {
+    try {
+      const subscriptions = await this.tenantsService.getTenantSubscriptions(tenantId);
+      return subscriptions;
+    } catch (error) {
+      throw new NotFoundException(`Error fetching tenant subscriptions: ${error.message}`);
+    }
+  }
 } 
