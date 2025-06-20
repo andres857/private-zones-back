@@ -1,4 +1,6 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, ConflictException, NotFoundException, Logger, InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import Stripe from 'stripe';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DeleteResult } from 'typeorm';
 import { Tenant } from './entities/tenant.entity';
@@ -9,7 +11,11 @@ import { CreateTenantProductDto } from './dto/create-tenant-product.dto';
 
 @Injectable()
 export class TenantsService {
+  private readonly logger = new Logger(TenantsService.name);
+
   constructor(
+    @Inject('STRIPE_API') private readonly stripe: Stripe,
+    private configService: ConfigService,
     @InjectRepository(Tenant)
     private tenantRepository: Repository<Tenant>,
     @InjectRepository(TenantProduct)
@@ -124,21 +130,180 @@ export class TenantsService {
     const savedProduct = await this.tenantProductRepository.save(tenantProduct);
 
     // Aquí puedes agregar la lógica para crear el producto en Stripe
-    // await this.createStripeProduct(savedProduct);
+    await this.createStripeProduct(savedProduct);
 
     return savedProduct;
   }
 
+  // Método para actualizar producto en Stripe
+  private async updateStripeProduct(tenantProduct: TenantProduct): Promise<void> {
+    try {
+      if (!tenantProduct.stripe_product_id) {
+        // Si no tiene ID de Stripe, crear uno nuevo
+        await this.createStripeProduct(tenantProduct);
+        return;
+      }
+
+      this.logger.log(`Actualizando producto en Stripe: ${tenantProduct.stripe_product_id}`);
+      
+      // Actualizar producto en Stripe
+      await this.stripe.products.update(tenantProduct.stripe_product_id, {
+        name: tenantProduct.title,
+        description: tenantProduct.description || '',
+        active: tenantProduct.is_active,
+        metadata: {
+          tenant_id: tenantProduct.tenant_id,
+          laravel_plan_id: tenantProduct.laravel_plan_id,
+          internal_product_id: tenantProduct.id
+        },
+      });
+
+      // Si el precio cambió, crear un nuevo precio y desactivar el anterior
+      if (tenantProduct.stripe_price_id) {
+        const currentPrice = await this.stripe.prices.retrieve(tenantProduct.stripe_price_id);
+        const newPriceAmount = Math.round(tenantProduct.price * 100);
+        
+        if (currentPrice.unit_amount !== newPriceAmount) {
+          // Desactivar precio anterior
+          await this.stripe.prices.update(tenantProduct.stripe_price_id, {
+            active: false
+          });
+
+          // Crear nuevo precio
+          let newStripePrice: Stripe.Price;
+          
+          if (tenantProduct.type_payment === 'recurring' && tenantProduct.recurring) {
+            newStripePrice = await this.stripe.prices.create({
+              unit_amount: newPriceAmount,
+              currency: tenantProduct.currency.toLowerCase(),
+              recurring: {
+                interval: tenantProduct.recurring.interval || 'month',
+                interval_count: tenantProduct.recurring.interval_count || 1,
+              },
+              product: tenantProduct.stripe_product_id,
+              metadata: {
+                tenant_id: tenantProduct.tenant_id,
+                laravel_plan_id: tenantProduct.laravel_plan_id,
+              },
+            });
+          } else {
+            newStripePrice = await this.stripe.prices.create({
+              unit_amount: newPriceAmount,
+              currency: tenantProduct.currency.toLowerCase(),
+              product: tenantProduct.stripe_product_id,
+              metadata: {
+                tenant_id: tenantProduct.tenant_id,
+                laravel_plan_id: tenantProduct.laravel_plan_id,
+              },
+            });
+          }
+
+          // Actualizar con el nuevo precio ID
+          tenantProduct.stripe_price_id = newStripePrice.id;
+          await this.tenantProductRepository.save(tenantProduct);
+          
+          this.logger.log(`Nuevo precio creado en Stripe con ID: ${newStripePrice.id}`);
+        }
+      }
+      
+      this.logger.log(`Producto actualizado exitosamente en Stripe`);
+      
+    } catch (error) {
+      this.logger.error('Error actualizando producto en Stripe:', error.message);
+      
+      if (error instanceof Stripe.errors.StripeError) {
+        throw new BadRequestException(`Error de Stripe al actualizar: ${error.message}`);
+      }
+      throw new InternalServerErrorException('Error interno al actualizar en Stripe.');
+    }
+  }
+
+  // Método para eliminar producto de Stripe
+  async deleteStripeProduct(tenantProduct: TenantProduct): Promise<void> {
+    try {
+      if (tenantProduct.stripe_product_id) {
+        this.logger.log(`Desactivando producto en Stripe: ${tenantProduct.stripe_product_id}`);
+        
+        // Stripe no permite eliminar productos, solo desactivarlos
+        await this.stripe.products.update(tenantProduct.stripe_product_id, {
+          active: false
+        });
+        
+        this.logger.log(`Producto desactivado en Stripe`);
+      }
+    } catch (error) {
+      this.logger.error('Error desactivando producto en Stripe:', error.message);
+      // No lanzar error aquí para no bloquear la eliminación local
+    }
+  }
+
   // Método para crear producto en Stripe (implementar según necesidades)
   private async createStripeProduct(tenantProduct: TenantProduct): Promise<void> {
-    // TODO: Implementar integración con Stripe
-    // const stripeProduct = await stripe.products.create({...});
-    // const stripePrice = await stripe.prices.create({...});
-    // 
-    // tenantProduct.stripe_product_id = stripeProduct.id;
-    // tenantProduct.stripe_price_id = stripePrice.id;
-    // 
-    // await this.tenantProductRepository.save(tenantProduct);
+    try {
+      this.logger.log(`Creando producto en Stripe: ${tenantProduct.title}`);
+      
+      // Crear producto en Stripe
+      const stripeProduct = await this.stripe.products.create({
+        name: tenantProduct.title,
+        description: tenantProduct.description || '',
+        metadata: {
+          tenant_id: tenantProduct.tenant_id,
+          laravel_plan_id: tenantProduct.laravel_plan_id,
+          internal_product_id: tenantProduct.id
+        },
+      });
+      
+      this.logger.log(`Producto creado en Stripe con ID: ${stripeProduct.id}`);
+
+      // Crear precio en Stripe
+      let stripePrice: Stripe.Price;
+      
+      if (tenantProduct.type_payment === 'recurring' && tenantProduct.recurring) {
+        // Precio recurrente
+        stripePrice = await this.stripe.prices.create({
+          unit_amount: Math.round(tenantProduct.price * 100), // Convertir a centavos
+          currency: tenantProduct.currency.toLowerCase(),
+          recurring: {
+            interval: tenantProduct.recurring.interval || 'month',
+            interval_count: tenantProduct.recurring.interval_count || 1,
+          },
+          product: stripeProduct.id,
+          metadata: {
+            tenant_id: tenantProduct.tenant_id,
+            laravel_plan_id: tenantProduct.laravel_plan_id,
+          },
+        });
+      } else {
+        // Precio único
+        stripePrice = await this.stripe.prices.create({
+          unit_amount: Math.round(tenantProduct.price * 100), // Convertir a centavos
+          currency: tenantProduct.currency.toLowerCase(),
+          product: stripeProduct.id,
+          metadata: {
+            tenant_id: tenantProduct.tenant_id,
+            laravel_plan_id: tenantProduct.laravel_plan_id,
+          },
+        });
+      }
+
+      this.logger.log(`Precio creado en Stripe con ID: ${stripePrice.id}`);
+
+      // Actualizar el producto local con los IDs de Stripe
+      tenantProduct.stripe_product_id = stripeProduct.id;
+      tenantProduct.stripe_price_id = stripePrice.id;
+      
+      await this.tenantProductRepository.save(tenantProduct);
+      
+      this.logger.log(`Producto y precio vinculados exitosamente: Producto ID ${stripeProduct.id}, Precio ID ${stripePrice.id}`);
+      
+    } catch (error) {
+      this.logger.error('Error creando producto y precio en Stripe:', error.message);
+      
+      if (error instanceof Stripe.errors.StripeError) {
+        throw new BadRequestException(`Error de Stripe: ${error.message}`);
+      }
+      throw new InternalServerErrorException('Error interno al procesar con Stripe.');
+    }
   }
 
   async update(id: string, updateTenantDto: UpdateTenantDto): Promise<Tenant> {
