@@ -66,6 +66,39 @@ export class StripeService {
     }
   }
 
+  // Función modificada para buscar producto por laravel_plan_id en metadata
+  async findProductByLaravelId(laravelPlanId: string): Promise<Stripe.Product> {
+    try {
+      this.logger.log(`Buscando producto de Stripe con laravel_plan_id: ${laravelPlanId}`);
+      
+      // Listar todos los productos activos
+      const products = await this.stripe.products.list({
+        active: true,
+        limit: 100, // Ajusta según tus necesidades
+      });
+      
+      // Buscar el producto que tenga el laravel_plan_id en metadata
+      const product = products.data.find(product => 
+        product.metadata && 
+        product.metadata.laravel_plan_id === laravelPlanId
+      );
+      
+      if (!product) {
+        this.logger.warn(`No se encontró producto de Stripe con laravel_plan_id: ${laravelPlanId}`);
+        throw new NotFoundException(`Producto con laravel_plan_id ${laravelPlanId} no encontrado en Stripe.`);
+      }
+      
+      this.logger.log(`Producto encontrado en Stripe - ID: ${product.id}, laravel_plan_id: ${laravelPlanId}`);
+      return product;
+    } catch (error) {
+      this.logger.error(`Error buscando producto con laravel_plan_id ${laravelPlanId}:`, error.message);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error al buscar el producto en Stripe.');
+    }
+  }
+
   async findProductById(id: string): Promise<Stripe.Product> {
     try {
       this.logger.log(`Consultando producto con ID: ${id}`);
@@ -163,7 +196,10 @@ export class StripeService {
       this.logger.log(`Creando sesión de checkout para el producto ID: ${productId}`);
       
       // Obtener el producto
-      const product = await this.findProductById(productId);
+      // const product = await this.findProductById(productId);
+
+      // Buscar proucto por id de laravel
+      const product = await this.findProductByLaravelId(productId);
       
       // Buscar un precio asociado al producto
       const prices = await this.findAllPrices(1, productId);
