@@ -2,7 +2,7 @@ import { Injectable, Inject, ConflictException, NotFoundException, Logger, Inter
 import Stripe from 'stripe';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeleteResult, SelectQueryBuilder } from 'typeorm';
+import { Repository, DeleteResult, SelectQueryBuilder, DataSource } from 'typeorm';
 import { Tenant } from './entities/tenant.entity';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
@@ -13,6 +13,8 @@ import { LaravelWebhookService } from './laravel-webhook.service';
 import { CreateSubscriptionDto } from './dto/suscription-tenant-user.dto';
 import { PaginatedTenantsResponseDto, TenantQueryDto } from './dto/tenant-query.dto';
 import { User } from 'src/users/entities/user.entity';
+import { TenantConfig } from './entities/tenant-config.entity';
+import { TenantContactInfo } from './entities/tenant-contact-info.entity';
 
 @Injectable()
 export class TenantsService {
@@ -31,14 +33,119 @@ export class TenantsService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
 
+    @InjectRepository(TenantConfig)
+    private readonly tenantConfigRepository: Repository<TenantConfig>,
+    
+    @InjectRepository(TenantContactInfo)
+    private readonly tenantContactInfoRepository: Repository<TenantContactInfo>,
+    
+    private readonly dataSource: DataSource,
+
     private laravelWebhookService: LaravelWebhookService,
   ) { }
+
+  async toggleActive(tenantId: string): Promise<{ status: boolean; message: string }> {
+    try {
+      // Buscar el tenant con su configuración
+      const tenant = await this.tenantRepository.findOne({
+        where: { id: tenantId },
+        relations: ['config']
+      });
+
+      if (!tenant) {
+        throw new NotFoundException({
+          error: 'TENANT_NOT_FOUND',
+          message: `El tenant con ID ${tenantId} no fue encontrado`,
+        });
+      }
+
+      // Si no tiene configuración, crearla
+      if (!tenant.config) {
+        const newConfig = this.tenantConfigRepository.create({
+          tenant: tenant,
+          status: false // Lo creamos como inactivo y luego lo activamos
+        });
+        tenant.config = await this.tenantConfigRepository.save(newConfig);
+      }
+
+      // Toggle del status
+      const currentStatus = tenant.config.status;
+      const newStatus = !currentStatus;
+      
+      // Actualizar el status
+      await this.tenantConfigRepository.update(tenant.config.id, {
+        status: newStatus
+      });
+
+      console.log(`Tenant ${tenantId} status changed from ${currentStatus} to ${newStatus}`);
+
+      return {
+        status: newStatus,
+        message: newStatus ? 'Tenant activado exitosamente' : 'Tenant desactivado exitosamente'
+      };
+
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      console.error('Error toggling tenant status:', error);
+      throw new BadRequestException({
+        error: 'TOGGLE_ERROR',
+        message: 'Error al cambiar el estado del tenant',
+        details: error.message
+      });
+    }
+  }
+
+  async getStatus(tenantId: string): Promise<{ status: boolean }> {
+    try {
+      const tenant = await this.tenantRepository.findOne({
+        where: { id: tenantId },
+        relations: ['config']
+      });
+
+      if (!tenant) {
+        throw new NotFoundException({
+          error: 'TENANT_NOT_FOUND',
+          message: `El tenant con ID ${tenantId} no fue encontrado`,
+        });
+      }
+
+      // Si no tiene configuración, asumir que está activo por defecto
+      const status = tenant.config?.status ?? true;
+
+      return { status };
+
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new BadRequestException({
+        error: 'GET_STATUS_ERROR',
+        message: 'Error al obtener el estado del tenant',
+        details: error.message
+      });
+    }
+  }
+
+  // Método helper para verificar si un tenant está activo
+  async isActive(tenantId: string): Promise<boolean> {
+    const statusResult = await this.getStatus(tenantId);
+    return statusResult.status;
+  }
 
   async create(dto: CreateTenantDto): Promise<Tenant> {
     const { slug, domain, name } = dto;
 
     console.log("=== BACKEND CREATE TENANT DEBUG ===");
     console.log("Received DTO:", JSON.stringify(dto, null, 2));
+
+    // Usar transaction para asegurar que tanto el tenant como su config se creen correctamente
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
     try {
       // Validaciones de negocio adicionales
@@ -69,13 +176,69 @@ export class TenantsService {
         });
       }
 
-      const tenant = this.tenantRepository.create(dto);
-      const savedTenant = await this.tenantRepository.save(tenant);
-      
+      // Crear el tenant principal
+      const tenantData = {
+        name: dto.name,
+        slug: dto.slug,
+        domain: dto.domain,
+        contactEmail: dto.contactEmail,
+        plan: dto.plan || 'free'
+      };
+
+      const tenant = this.tenantRepository.create(tenantData);
+      const savedTenant = await queryRunner.manager.save(tenant);
+
+      // Crear la configuración del tenant
+      const configData = {
+        tenant: savedTenant,
+        status: dto.config?.status ?? true,
+        primaryColor: dto.config?.primaryColor || dto.primaryColor || '#007bff',
+        secondaryColor: dto.config?.secondaryColor || dto.secondaryColor || '#6c757d',
+        maxUsers: dto.config?.maxUsers || dto.maxUsers || 10,
+        storageLimit: dto.config?.storageLimit || dto.storageLimit || 150, // GB
+        timezone: dto.timezone || 'America/Bogota',
+        language: dto.language || 'es-CO'
+      };
+
+      const tenantConfig = this.tenantConfigRepository.create(configData);
+      await queryRunner.manager.save(tenantConfig);
+
+      // Crear la información de contacto del tenant
+      const contactInfoData = {
+        tenant: savedTenant,
+        contactPerson: dto.contactPerson,
+        phone: dto.phone,
+        address: dto.address,
+        city: dto.city,
+        country: dto.country,
+        contactEmail: dto.contactEmail || `contact@${dto.domain}`
+      };
+
+      const tenantContactInfo = this.tenantContactInfoRepository.create(contactInfoData);
+      await queryRunner.manager.save(tenantContactInfo);
+
+      // Commit de la transacción
+      await queryRunner.commitTransaction();
+
+      // Buscar el tenant con todas sus relaciones
+      const tenantWithRelations = await this.tenantRepository.findOne({
+        where: { id: savedTenant.id },
+        relations: ['config', 'contactInfo']
+      });
+
+      if (!tenantWithRelations) {
+        throw new BadRequestException({
+          error: 'TENANT_NOT_FOUND_AFTER_CREATION',
+          message: 'Error interno: No se pudo recuperar el tenant después de crearlo'
+        });
+      }
+
       console.log("Tenant created successfully:", savedTenant.id);
-      return savedTenant;
+      return tenantWithRelations;
       
     } catch (error) {
+      // Rollback en caso de error
+      await queryRunner.rollbackTransaction();
       console.log("Error in create method:", error);
       
       // Si ya es una excepción HTTP, la re-lanzamos
@@ -89,6 +252,9 @@ export class TenantsService {
         message: 'Error al crear el tenant en la base de datos',
         details: error.message
       });
+    } finally {
+      // Liberar la conexión
+      await queryRunner.release();
     }
   }
 

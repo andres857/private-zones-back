@@ -86,5 +86,14 @@ export class CreateTenantDto {
   })
   language: string;
 
+  @IsOptional()
+  config?: {
+    status?: boolean;
+    primaryColor?: string;
+    secondaryColor?: string;
+    maxUsers?: number;
+    storageLimit?: number;
+  }
+
 
 }

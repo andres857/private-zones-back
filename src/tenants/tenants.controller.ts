@@ -104,6 +104,19 @@ export class TenantsController {
     return this.tenantsService.create(createTenantDto);
   }
 
+  @Patch('toggle-active/:id')
+  @HttpCode(HttpStatus.OK)
+  async toggleActive(@Param('id') id: string): Promise<{ status: boolean; message: string }> {
+    return this.tenantsService.toggleActive(id);
+  }
+
+  @Get('status/:id')
+  @HttpCode(HttpStatus.OK)
+  async getStatus(@Param('id') id: string): Promise<{ status: boolean }> {
+    console.log(`Checking status for tenant ID: ${id}`);
+    return this.tenantsService.getStatus(id);
+  }
+
   @Get()
   @HttpCode(HttpStatus.OK)
   async findAll(@Query() queryDto: TenantQueryDto): Promise<PaginatedTenantsResponseDto> {
