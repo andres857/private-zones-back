@@ -8,10 +8,11 @@ import { Tenant } from './entities/tenant.entity';
 import { TenantProduct } from './entities/tenant-product.entity';
 import { Subscription } from './entities/suscription-tenant.entity';
 import { LaravelWebhookService } from './laravel-webhook.service';
+import { User } from 'src/users/entities/user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Tenant, TenantProduct, Subscription]),
+    TypeOrmModule.forFeature([Tenant, TenantProduct, Subscription, User]),
     HttpModule,
   ],
   controllers: [TenantsController],

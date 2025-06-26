@@ -38,6 +38,9 @@ export class Tenant {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
+  updatedAt: Date;
+
   @OneToOne(() => TenantConfig, config => config.tenant)
   config: TenantConfig;
 

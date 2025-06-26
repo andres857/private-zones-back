@@ -1,10 +1,11 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, NotFoundException, Query, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, NotFoundException, Query, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { TenantsService } from './tenants.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { Tenant } from './entities/tenant.entity';
 import { TenantProduct } from './entities/tenant-product.entity';
 import { CreateTenantProductDto } from './dto/create-tenant-product.dto';
+import { PaginatedTenantsResponseDto, TenantQueryDto } from './dto/tenant-query.dto';
 
 @Controller('tenants')
 export class TenantsController {
@@ -104,8 +105,20 @@ export class TenantsController {
   }
 
   @Get()
-  findAll() {
-    return this.tenantsService.findAll();
+  @HttpCode(HttpStatus.OK)
+  async findAll(@Query() queryDto: TenantQueryDto): Promise<PaginatedTenantsResponseDto> {
+    try {
+      console.log('Query parameters:', queryDto);
+      
+      const result = await this.tenantsService.findAllPaginated(queryDto);
+      
+      console.log(`Found ${result.data.length} tenants, total: ${result.total}`);
+      
+      return result;
+    } catch (error) {
+      console.error('Error fetching tenants:', error);
+      throw new BadRequestException('Error fetching tenants');
+    }
   }
 
   @Get(':id')

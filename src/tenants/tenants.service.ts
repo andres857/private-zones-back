@@ -2,7 +2,7 @@ import { Injectable, Inject, ConflictException, NotFoundException, Logger, Inter
 import Stripe from 'stripe';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeleteResult } from 'typeorm';
+import { Repository, DeleteResult, SelectQueryBuilder } from 'typeorm';
 import { Tenant } from './entities/tenant.entity';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
@@ -11,6 +11,8 @@ import { CreateTenantProductDto } from './dto/create-tenant-product.dto';
 import { Subscription } from './entities/suscription-tenant.entity';
 import { LaravelWebhookService } from './laravel-webhook.service';
 import { CreateSubscriptionDto } from './dto/suscription-tenant-user.dto';
+import { PaginatedTenantsResponseDto, TenantQueryDto } from './dto/tenant-query.dto';
+import { User } from 'src/users/entities/user.entity';
 
 @Injectable()
 export class TenantsService {
@@ -25,36 +27,208 @@ export class TenantsService {
     private tenantProductRepository: Repository<TenantProduct>,
     @InjectRepository(Subscription)
     private subscriptionRepository: Repository<Subscription>,
+
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+
     private laravelWebhookService: LaravelWebhookService,
   ) { }
 
   async create(dto: CreateTenantDto): Promise<Tenant> {
-    const { slug, domain } = dto;
+    const { slug, domain, name } = dto;
 
-    // Validar que no exista otro con el mismo slug o dominio
-    const existing = await this.tenantRepository.findOne({
-      where: [{ slug }, { domain }],
-    });
+    console.log("=== BACKEND CREATE TENANT DEBUG ===");
+    console.log("Received DTO:", JSON.stringify(dto, null, 2));
 
-    if (existing) {
-      throw new ConflictException(
-        `Ya existe un tenant con el slug o dominio "${slug}" / "${domain}"`,
-      );
+    try {
+      // Validaciones de negocio adicionales
+      await this.validateTenantData(dto);
+
+      // Verificar duplicados más específicamente
+      const existingBySlug = await this.tenantRepository.findOne({ where: { slug } });
+      const existingByDomain = await this.tenantRepository.findOne({ where: { domain } });
+
+      console.log("Existing by slug:", existingBySlug ? "FOUND" : "NOT_FOUND");
+      console.log("Existing by domain:", existingByDomain ? "FOUND" : "NOT_FOUND");
+
+      if (existingBySlug) {
+        throw new ConflictException({
+          error: 'SLUG_ALREADY_EXISTS',
+          message: `El slug "${slug}" ya está en uso`,
+          field: 'slug',
+          value: slug
+        });
+      }
+
+      if (existingByDomain) {
+        throw new ConflictException({
+          error: 'DOMAIN_ALREADY_EXISTS',
+          message: `El dominio "${domain}" ya está en uso`,
+          field: 'domain',
+          value: domain
+        });
+      }
+
+      const tenant = this.tenantRepository.create(dto);
+      const savedTenant = await this.tenantRepository.save(tenant);
+      
+      console.log("Tenant created successfully:", savedTenant.id);
+      return savedTenant;
+      
+    } catch (error) {
+      console.log("Error in create method:", error);
+      
+      // Si ya es una excepción HTTP, la re-lanzamos
+      if (error instanceof ConflictException || error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      // Para otros errores (como errores de BD)
+      throw new BadRequestException({
+        error: 'DATABASE_ERROR',
+        message: 'Error al crear el tenant en la base de datos',
+        details: error.message
+      });
+    }
+  }
+
+  private async validateTenantData(dto: CreateTenantDto): Promise<void> {
+    console.log("Validating tenant data:", dto);
+    
+    // Validaciones adicionales de negocio
+    if (dto.slug.includes('admin') || dto.slug.includes('api')) {
+      throw new BadRequestException({
+        error: 'RESERVED_SLUG',
+        message: 'El slug contiene palabras reservadas',
+        field: 'slug',
+        value: dto.slug
+      });
     }
 
-    const tenant = this.tenantRepository.create(dto);
-    return this.tenantRepository.save(tenant);
+    // Validar dominio
+    if (dto.domain.includes('localhost') && process.env.NODE_ENV === 'production') {
+      throw new BadRequestException({
+        error: 'INVALID_DOMAIN',
+        message: 'No se permite localhost en producción',
+        field: 'domain',
+        value: dto.domain
+      });
+    }
+
+    // Validar que el dominio tenga el formato correcto
+    const domainRegex = /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!domainRegex.test(dto.domain)) {
+      throw new BadRequestException({
+        error: 'INVALID_DOMAIN_FORMAT',
+        message: 'El formato del dominio no es válido',
+        field: 'domain',
+        value: dto.domain
+      });
+    }
+
+    console.log("Tenant data validation passed");
   }
 
   async findAll(): Promise<Tenant[]> {
     return await this.tenantRepository.find();
   }
 
+  async findAllPaginated(queryDto: TenantQueryDto): Promise<PaginatedTenantsResponseDto> {
+    const { 
+      search, 
+      plan, 
+      isActive, 
+      page = 1, 
+      limit = 20, 
+      sortBy = 'createdAt', 
+      sortOrder = 'DESC' 
+    } = queryDto;
+
+    const queryBuilder: SelectQueryBuilder<Tenant> = this.tenantRepository.createQueryBuilder('tenant');
+
+    // se agregan relacioens de config tenant
+    queryBuilder
+    .leftJoinAndSelect('tenant.config', 'config')
+    .leftJoinAndSelect('tenant.users', 'users');
+
+    // Aplicar filtros
+    if (search) {
+      queryBuilder.andWhere(
+        '(tenant.name ILIKE :search OR tenant.domain ILIKE :search OR tenant.contactEmail ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    if (plan) {
+      queryBuilder.andWhere('tenant.plan = :plan', { plan });
+    }
+
+    if (isActive !== undefined) {
+      queryBuilder.andWhere('tenant.isActive = :isActive', { isActive });
+    }
+
+    // Aplicar ordenamiento
+    const validSortFields = ['name', 'domain', 'plan', 'createdAt', 'updatedAt'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    queryBuilder.orderBy(`tenant.${sortField}`, sortOrder);
+
+    // Aplicar paginación
+    const skip = (page - 1) * limit;
+    queryBuilder.skip(skip).take(limit);
+
+    // Ejecutar consulta
+    const [data, total] = await queryBuilder.getManyAndCount();
+
+    // Agregar currentUsers al config
+    for (const tenant of data) {
+      const currentUsers = tenant.users?.length ?? 0;
+
+      if (tenant.config) {
+        tenant.config['currentUsers'] = currentUsers;
+      } else {
+        tenant.config = { currentUsers } as any;
+      }
+    }
+
+    // Calcular metadatos de paginación
+    const totalPages = Math.ceil(total / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages,
+      hasNextPage,
+      hasPrevPage,
+    };
+  }
+
   async findOne(id: string): Promise<Tenant> {
-    const tenant = await this.tenantRepository.findOne({ where: { id } });
+    const tenant = await this.tenantRepository.findOne({ 
+      where: { id },
+      relations: [
+        'config',
+        'contactInfo'
+      ]
+    });
+    
     if (!tenant) {
       throw new NotFoundException(`Tenant con ID ${id} no encontrado`);
     }
+
+    // Contar usuarios del tenant
+    const totalUsers = await this.userRepository.count({
+      where: { tenant: { id } }
+    });
+
+    // Agregar totalUsers al objeto config
+    if (tenant.config) {
+      (tenant.config as any).currentUsers = totalUsers;
+    }
+
     return tenant;
   }
 

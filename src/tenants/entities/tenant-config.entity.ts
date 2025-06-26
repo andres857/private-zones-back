@@ -15,6 +15,9 @@ import {
     @OneToOne(() => Tenant, tenant => tenant.config, { onDelete: 'CASCADE' })
     @JoinColumn()
     tenant: Tenant;
+
+    @Column({ default: true})
+    status: boolean; // "active - 1", "inactive - 0", "suspended"
   
     @Column({ default: '#0052cc' })
     primaryColor: string;
@@ -33,5 +36,14 @@ import {
   
     @Column({ nullable: true })
     timezone: string;
+
+    // campo maximo de usuarios
+    @Column({ default: 1000 })
+    maxUsers: number;
+
+    // campo maximo de almacenamiento en GB
+    @Column({ default: 100 })
+    storageLimit: number;
+
   }
   
