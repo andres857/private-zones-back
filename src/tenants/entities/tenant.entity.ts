@@ -7,9 +7,11 @@ import {
 } from 'typeorm';
 import { TenantConfig } from './tenant-config.entity';
 import { TenantContactInfo } from './tenant-contact-info.entity';
+import { TenantViewConfig } from './tenant-view-config.entity';
 import { User } from '../../users/entities/user.entity';
 import { TenantProduct } from './tenant-product.entity';
 import { Subscription } from './suscription-tenant.entity';
+import { TenantComponentConfig } from './tenant-component-config.entity';
 
 @Entity()
 export class Tenant {
@@ -46,6 +48,12 @@ export class Tenant {
 
   @OneToOne(() => TenantContactInfo, contact => contact.tenant)
   contactInfo: TenantContactInfo;
+
+  @OneToMany(() => TenantViewConfig, viewConfig => viewConfig.tenant)
+  viewConfigs: TenantViewConfig[];
+
+  @OneToMany(() => TenantComponentConfig, componentConfig => componentConfig.tenant)
+  componentConfigs: TenantComponentConfig[];
 
   @OneToMany(() => User, user => user.tenant)
   users: User[];

@@ -27,5 +27,11 @@ import {
   
     @Column()
     address: string;
+
+    @Column({ nullable: true})
+    url_portal: string;
+
+    @Column({ nullable: true})
+    nit: string;
   }
   

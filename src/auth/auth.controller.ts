@@ -7,10 +7,11 @@ import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { Public } from './decorators/public.decorator';
 import { Request } from 'express';
 import { GetUser } from './decorators/get-user.decorator';
-import { User } from './entities/user.entity';
+// import { User } from './entities/user.entity';
 import { DefaultRoleInterceptor } from './interceptors/default-role.interceptor';
 import { UserRole } from 'src/common/enums/user-role.enum';
 import { TenantValidationInterceptor } from './interceptors/tenant-validation.interceptor';
+import { User } from 'src/users/entities/user.entity';
 
 @Controller('auth')
 export class AuthController {
@@ -84,8 +85,8 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('me')
   getProfile(@GetUser() user: User) {
-
-    const roleNames = user.roles.map(role => role.name);
+    // Validación defensiva
+    const roleNames = user.roles?.map(role => role.name) || [];
 
     return {
       id: user.id,
