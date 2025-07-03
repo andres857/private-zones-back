@@ -57,18 +57,22 @@ export class TenantViewConfig {
     @Column({ nullable: true, type: 'text' })
     description: string;
 
+    //Configuracion habilitar background
+    @Column({default: false})
+    allowBackground: boolean;
+
     // configuracion enum de tipo de fondo
     @Column({
         type: 'enum',
         enum: ['image', 'color', 'none'],
-        default: 'none'
+        default: 'color'
     })
     backgroundType: 'image' | 'color' | 'none';
 
     @Column({ nullable: true })
     backgroundImagePath: string;
 
-    @Column({ nullable: true })
+    @Column({ nullable: true, default: '#eff4ff' })
     backgroundColor: string;
 
     // Contenido informativo de bienvenida

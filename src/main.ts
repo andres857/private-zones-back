@@ -1,4 +1,4 @@
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
@@ -21,11 +21,20 @@ async function bootstrap() {
 
   app.useWebSocketAdapter(new SocketIoAdapter(app, corsOptions));
   app.setGlobalPrefix('v1');
-
-    app.useGlobalPipes(new ValidationPipe({
+  app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
     forbidNonWhitelisted: true,
     transform: true,
+    exceptionFactory: (errors) => {
+      const messages = errors.map(err => {
+        if (err.constraints?.whitelistValidation) {
+          return `La propiedad "${err.property}" no está permitida\n`;
+        }
+        return Object.values(err.constraints || {}).map(msg => `${msg}\n`);
+      }).flat();
+
+      return new BadRequestException(messages);
+    }
   }));
   // Configurar CORS
   app.enableCors({

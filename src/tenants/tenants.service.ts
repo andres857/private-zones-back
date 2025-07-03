@@ -15,6 +15,7 @@ import { PaginatedTenantsResponseDto, TenantQueryDto } from './dto/tenant-query.
 import { User } from 'src/users/entities/user.entity';
 import { TenantConfig } from './entities/tenant-config.entity';
 import { TenantContactInfo } from './entities/tenant-contact-info.entity';
+import { TenantViewConfig, ViewType } from './entities/tenant-view-config.entity';
 
 @Injectable()
 export class TenantsService {
@@ -38,6 +39,9 @@ export class TenantsService {
     
     @InjectRepository(TenantContactInfo)
     private readonly tenantContactInfoRepository: Repository<TenantContactInfo>,
+
+    @InjectRepository(TenantViewConfig)
+    private readonly tenantViewConfigRepository: Repository<TenantViewConfig>,
     
     private readonly dataSource: DataSource,
 
@@ -216,6 +220,20 @@ export class TenantsService {
 
       const tenantContactInfo = this.tenantContactInfoRepository.create(contactInfoData);
       await queryRunner.manager.save(tenantContactInfo);
+
+
+      // Crear la configuracion de personalizacion de las vistas
+      const viewConfigData = {
+        tenant: savedTenant,
+        viewType: dto.homeSettings.type as ViewType,
+        allowBackground: dto.homeSettings.customBackground,
+        backgroundType: dto.homeSettings.backgroundType as 'image' | 'color' | 'none',
+        backgroundColor: dto.homeSettings.backgroundColor,
+        backgroundImagePath: dto.homeSettings.backgroundImage
+      };
+
+      const tenantViewConfig = this.tenantViewConfigRepository.create(viewConfigData);
+      await queryRunner.manager.save(tenantViewConfig);
 
       // Commit de la transacción
       await queryRunner.commitTransaction();

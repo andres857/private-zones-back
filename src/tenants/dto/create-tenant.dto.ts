@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import { 
   IsEmail, 
   IsNotEmpty, 
@@ -6,8 +7,35 @@ import {
   Matches, 
   Length,
   IsIn, 
-  IsNumber
+  IsNumber,
+  IsJSON,
+  IsArray,
+  IsBoolean,
+  ValidateNested
 } from 'class-validator';
+import { ViewType } from '../entities/tenant-view-config.entity';
+
+export class ViewSettingsDto {
+  @IsIn(Object.values(ViewType), { message: 'El tipo de vista no es válido' })
+  type: ViewType;
+
+  @IsBoolean({message: 'customBackground debe ser true o false'})
+  customBackground: boolean;
+
+  @IsOptional()
+  @IsIn(['image', 'color', 'none'], {
+    message: 'El backgroundType debe ser: image, color o none',
+  })
+  backgroundType?: 'image' | 'color' | 'none';
+
+  @IsOptional()
+  @IsString()
+  backgroundImage?: string;
+
+  @IsOptional()
+  @IsString()
+  backgroundColor?: string;
+}
 
 export class CreateTenantDto {
   @IsNotEmpty({ message: 'El nombre es requerido' })
@@ -85,6 +113,60 @@ export class CreateTenantDto {
     message: 'El formato del language no es válido, debe ser un código ISO 639-1',
   })
   language: string;
+
+  @IsOptional()
+  @IsString({ message: 'El url_portal debe ser una cadena de texto' })
+  url_portal: string;
+
+  @IsOptional()
+  @IsString({message: 'El nit debe ser una cadena de texto numerico'})
+  nit: String;
+
+  @IsOptional()
+  @IsString({message: 'El backgroundColorNavbar debe ser una cadena de texto'})
+  backgroundColorNavbar: string;
+
+  @IsOptional()
+  @IsString({message: 'El textColorNavbar debe ser una cadena de texto'})
+  textColorNavbar: string;
+
+  @IsOptional()
+  @IsString({message: 'El logoNavbar debe ser una cadena de texto'})
+  logoNavbar: string;
+
+  @IsOptional()
+  @IsString({message: 'El showNotifications debe ser boolean'})
+  showNotifications: boolean
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ViewSettingsDto)
+  homeSettings: ViewSettingsDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ViewSettingsDto)
+  videoCallSettings: ViewSettingsDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ViewSettingsDto)
+  metricsSettings: ViewSettingsDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ViewSettingsDto)
+  groupsSettings: ViewSettingsDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ViewSettingsDto)
+  sectionsSettings: ViewSettingsDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ViewSettingsDto)
+  faqSettings: ViewSettingsDto;
 
   @IsOptional()
   config?: {
