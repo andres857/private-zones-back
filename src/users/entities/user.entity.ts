@@ -1,13 +1,16 @@
 // src/users/entities/user.entity.ts
 import {
   Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn,
-  BeforeInsert, BeforeUpdate, OneToMany, ManyToMany, JoinTable, ManyToOne, JoinColumn
+  BeforeInsert, BeforeUpdate, OneToMany, ManyToMany, JoinTable, ManyToOne, JoinColumn, OneToOne
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import * as bcrypt from 'bcrypt';
 import { RefreshToken } from '../../auth/entities/token.entity';
 import { Role } from 'src/roles/entities/role.entity';
 import { Tenant } from 'src/tenants/entities/tenant.entity';
+import { UserConfig } from './user-config.entity';
+import { UserProfileConfig } from './user-profile-config.entity';
+import { UserNotificationConfig } from './user-notification-config.entity';
 
 @Entity('users')
 export class User {
@@ -51,6 +54,13 @@ export class User {
   @ManyToMany(() => Role, role => role.users, { eager: true }) // Eager si siempre lo necesitas
   @JoinTable()
   roles: Role[];
+
+  // Relaciones con las configuraciones
+  @OneToOne(() => UserProfileConfig, config => config.user, { cascade: true })
+  profileConfig: UserProfileConfig;
+
+  @OneToOne(() => UserNotificationConfig, config => config.user, { cascade: true })
+  notificationConfig: UserNotificationConfig;
 
   @CreateDateColumn()
   createdAt: Date;
