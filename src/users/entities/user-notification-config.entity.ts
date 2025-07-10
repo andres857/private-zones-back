@@ -18,11 +18,7 @@ export class UserNotificationConfig {
     @Column({ default: true })
     enableNotifications: boolean;
 
-    // Tipos de notificaciones
-    @Column({ default: true })
-    emailNotifications: boolean;
-
-    @Column({ default: true })
+    @Column({ default: false })
     smsNotifications: boolean;
 
     @Column({ default: false })
@@ -32,7 +28,7 @@ export class UserNotificationConfig {
     @Column({ default: true })
     securityAlerts: boolean;
 
-    @Column({ default: true })
+    @Column({ default: false })
     accountUpdates: boolean;
 
     @Column({ default: true })
