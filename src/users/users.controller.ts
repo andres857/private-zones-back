@@ -1,16 +1,28 @@
-import { Controller, Get, Post, Body, Param, ParseIntPipe, Delete, Query, Patch, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, ParseIntPipe, Delete, Query, Patch, ParseUUIDPipe, Logger } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
+import { CreateUserDto, UpdateUserDto } from './dto/create-user.dto';
 import { User } from './entities/user.entity';
 import { AssignRolesDto } from 'src/roles/dto/assign-roles.dto';
 import { FilterUsersDto, UserListResponseDto, UserStatsDto } from './dto/filter-users.dto';
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+  
+  private readonly logger = new Logger(UsersController.name);
 
   @Post()
   create(@Body() createUserDto: CreateUserDto): Promise<User> {
+    this.logger.warn('Creacion de usuario');
     return this.usersService.create(createUserDto);
+  }
+
+  @Patch(':id')
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateUserDto: UpdateUserDto
+  ): Promise<User> {
+    this.logger.log(`Actualizando usuario: ${id}`);
+    return this.usersService.update(id, updateUserDto);
   }
 
   @Get()
@@ -34,7 +46,7 @@ export class UsersController {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: string): Promise<User> {
+  findOne(@Param('id', ParseUUIDPipe) id: string): Promise<User> {
     return this.usersService.findOne(id);
   }
 

@@ -37,13 +37,13 @@ export class UserProfileConfig {
     charge: string; // Cargo o puesto en la organización
 
     @Column({ nullable: true })
-    genger: string; // Género del usuario (Masculino, Femenino, Otro)
+    gender: string; // Género del usuario (Masculino, Femenino, Otro)
 
     @Column({ nullable: true })
-    City: string; // Ciudad de residencia
+    city: string; // Ciudad de residencia
 
     @Column({ nullable: true })
-    Country: string; // País de residencia
+    country: string; // País de residencia
 
     @Column({ nullable: true })
     address: string; // Dirección física del usuario

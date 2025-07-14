@@ -4,6 +4,36 @@ import { AppModule } from './app.module';
 
 import { SocketIoAdapter } from './socket-io-adapter';
 
+
+// Función helper para extraer errores anidados
+function extractErrorMessages(errors: any[], parentPath = ''): string[] {
+  const messages: string[] = [];
+  
+  for (const error of errors) {
+    const path = parentPath ? `${parentPath}.${error.property}` : error.property;
+    
+    // Si tiene constraints, extraer los mensajes
+    if (error.constraints) {
+      if (error.constraints.whitelistValidation) {
+        messages.push(`La propiedad "${path}" no está permitida`);
+      } else {
+        const constraintMessages = Object.values(error.constraints).map(
+          msg => `${path}: ${msg}`
+        );
+        messages.push(...constraintMessages);
+      }
+    }
+    
+    // Si tiene errores anidados (children), procesarlos recursivamente
+    if (error.children && error.children.length > 0) {
+      const nestedMessages = extractErrorMessages(error.children, path);
+      messages.push(...nestedMessages);
+    }
+  }
+  
+  return messages;
+}
+
 async function bootstrap() {
   process.env.TZ = 'America/Bogota';
   
@@ -25,14 +55,16 @@ async function bootstrap() {
     whitelist: true,
     forbidNonWhitelisted: true,
     transform: true,
+    validateCustomDecorators: true,
     exceptionFactory: (errors) => {
-      const messages = errors.map(err => {
-        if (err.constraints?.whitelistValidation) {
-          return `La propiedad "${err.property}" no está permitida\n`;
-        }
-        return Object.values(err.constraints || {}).map(msg => `${msg}\n`);
-      }).flat();
-
+      console.log('Validation errors:', JSON.stringify(errors, null, 2)); // Para debugging
+      
+      const messages = extractErrorMessages(errors);
+      
+      if (messages.length === 0) {
+        return new BadRequestException('Errores de validación');
+      }
+      
       return new BadRequestException(messages);
     }
   }));

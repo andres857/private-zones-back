@@ -1,12 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeleteResult, In, DeepPartial, MoreThanOrEqual } from 'typeorm';
+import { Repository, DeleteResult, In, DeepPartial, MoreThanOrEqual, Not } from 'typeorm';
 import { Role } from 'src/roles/entities/role.entity';
 import { User } from './entities/user.entity';
-import { CreateUserDto } from './dto/create-user.dto';
+import { CreateUserDto, CreateUserNotificationConfigDto, UpdateUserDto } from './dto/create-user.dto';
 import { AssignRolesDto } from 'src/roles/dto/assign-roles.dto';
 import { FilterUsersDto, UserListResponseDto, UserStatsDto } from './dto/filter-users.dto';
 import { Tenant } from 'src/tenants/entities/tenant.entity';
+import * as bcrypt from 'bcrypt';
+import { UserNotificationConfig } from './entities/user-notification-config.entity';
+import { UserProfileConfig } from './entities/user-profile-config.entity';
 
 @Injectable()
 export class UsersService {
@@ -15,31 +18,160 @@ export class UsersService {
     private usersRepository: Repository<User>,
     @InjectRepository(Role)
     private rolesRepository: Repository<Role>,
+    @InjectRepository(UserProfileConfig)
+    private userProfileConfigRepository: Repository<UserProfileConfig>,
+
+    @InjectRepository(UserNotificationConfig)
+    private userNotificationConfigRepository: Repository<UserNotificationConfig>,
 
     @InjectRepository(Tenant)
     private tenantsRepository: Repository<Tenant>
   ) {}
 
-  async create(createUserDto: CreateUserDto, roleEntities?: Role[]): Promise<User> {
-    // Creamos un tipo que tiene roles opcional
-    type UserDataType = Omit<CreateUserDto, 'roles'> & { roles?: Role[] };
-    
-    // Copiamos createUserDto sin roles
-    const userDataWithoutRoles: Omit<CreateUserDto, 'roles'> = { ...createUserDto };
-    // @ts-ignore - Eliminamos roles si existe
-    if (createUserDto.roles) delete userDataWithoutRoles.roles;
-    
-    // Luego añadimos roles solo si tenemos roleEntities
-    const userData: UserDataType = {
-      ...userDataWithoutRoles
-    };
-    
-    if (roleEntities) {
-      userData.roles = roleEntities;
+  private readonly logger = new Logger(UsersService.name);
+
+  async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
+    // Verificar que el usuario existe
+    const existingUser = await this.usersRepository.findOne({
+      where: { id },
+      relations: ['roles', 'profileConfig', 'notificationConfig']
+    });
+
+    if (!existingUser) {
+      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
     }
-  
-    const user = this.usersRepository.create(userData as DeepPartial<User>);
-    return await this.usersRepository.save(user);
+
+    // Si se está actualizando el email, verificar que no exista otro usuario con ese email en el mismo tenant
+    if (updateUserDto.email && updateUserDto.email !== existingUser.email) {
+      const emailExists = await this.usersRepository.findOne({
+        where: { 
+          email: updateUserDto.email, 
+          tenantId: existingUser.tenantId,
+          id: Not(id) // Excluir el usuario actual
+        }
+      });
+
+      if (emailExists) {
+        throw new ConflictException('Ya existe un usuario con este email en este tenant');
+      }
+    }
+
+    // Manejar actualización de roles si se proporcionan
+    if (updateUserDto.roleIds) {
+      const roles = await this.rolesRepository.findBy({
+        id: In(updateUserDto.roleIds)
+      });
+
+      if (roles.length !== updateUserDto.roleIds.length) {
+        throw new BadRequestException('Uno o más roles no son válidos');
+      }
+
+      existingUser.roles = roles;
+    }
+
+    // Actualizar configuración del perfil si se proporciona
+    if (updateUserDto.profileConfig) {
+      if (existingUser.profileConfig) {
+        // Actualizar configuración existente
+        Object.assign(existingUser.profileConfig, updateUserDto.profileConfig);
+      } else {
+        // Crear nueva configuración
+        const newProfileConfig = this.userProfileConfigRepository.create({
+          ...updateUserDto.profileConfig,
+          user: existingUser
+        });
+        existingUser.profileConfig = newProfileConfig;
+      }
+    }
+
+    // Actualizar configuración de notificaciones si se proporciona
+    if (updateUserDto.notificationConfig) {
+      if (existingUser.notificationConfig) {
+        // Actualizar configuración existente
+        Object.assign(existingUser.notificationConfig, updateUserDto.notificationConfig);
+      } else {
+        // Crear nueva configuración
+        const newNotificationConfig = this.userNotificationConfigRepository.create({
+          ...updateUserDto.notificationConfig,
+          user: existingUser
+        });
+        existingUser.notificationConfig = newNotificationConfig;
+      }
+    }
+
+    // Actualizar campos principales del usuario (excluyendo roleIds y configuraciones que ya se manejaron)
+    const { roleIds, profileConfig, notificationConfig, ...userUpdates } = updateUserDto;
+    Object.assign(existingUser, userUpdates);
+
+    // Guardar y retornar
+    return await this.usersRepository.save(existingUser);
+  }
+
+  async create(createUserDto: CreateUserDto, roleEntities?: Role[]): Promise<User> {
+    this.logger.warn('Comienza proceso creacion de usuario');
+    
+    try {
+      // Separar configuraciones y datos principales
+      const { notificationConfig, profileConfig, ...userData } = createUserDto;
+      
+      // Hash de la contraseña
+      const hashedPassword = await bcrypt.hash(userData.password, 10);
+      
+      // Preparar datos del usuario
+      const userToCreate = {
+        ...userData,
+        password: hashedPassword,
+        roles: roleEntities || [],
+        // configuracion de profile
+        profileConfig: profileConfig || {
+          bio: '',
+          phoneNumber: '',
+          type_document: '',
+          documentNumber: '',
+          organization: '',
+          charge: '',
+          gender: '',
+          city: '',
+          country: '',
+          address: '',
+          dateOfBirth: '',
+        },
+
+        // Configuración de notificaciones por defecto si no se proporciona
+        notificationConfig: notificationConfig || {
+          enableNotifications: true,
+          smsNotifications: false,
+          browserNotifications: false,
+          securityAlerts: true,
+          accountUpdates: false,
+          systemUpdates: true,
+          marketingEmails: false,
+          newsletterEmails: false,
+          reminders: true,
+          mentions: true,
+          directMessages: true
+        }
+      };
+      
+      this.logger.log('Datos del usuario a crear:', {
+        email: userToCreate.email,
+        name: userToCreate.name,
+        lastName: userToCreate.lastName,
+        tenantId: userToCreate.tenantId,
+        rolesCount: userToCreate.roles.length
+      });
+      
+      // Crear y guardar usuario
+      const user = this.usersRepository.create(userToCreate);
+      const savedUser = await this.usersRepository.save(user);
+      
+      this.logger.log(`Usuario creado exitosamente: ${savedUser.id}`);
+      return savedUser;
+      
+    } catch (error) {
+      this.logger.error('Error al crear usuario:', error);
+      throw error;
+    }
   }
 
   async findAll(): Promise<User[]> {
@@ -186,6 +318,8 @@ export class UsersService {
 
   async findOne(id: string): Promise<User> {
     const user = await this.usersRepository.findOne({ where: { id }, relations: ['roles', 'tenant', 'profileConfig', 'notificationConfig'] });
+
+    this.logger.warn(user);
     if (!user) {
       throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
     }
