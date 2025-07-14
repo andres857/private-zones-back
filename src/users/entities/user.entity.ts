@@ -1,7 +1,7 @@
 // src/users/entities/user.entity.ts
 import {
   Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn,
-  BeforeInsert, BeforeUpdate, OneToMany, ManyToMany, JoinTable, ManyToOne, JoinColumn, OneToOne
+  BeforeInsert, BeforeUpdate, OneToMany, ManyToMany, JoinTable, ManyToOne, JoinColumn, OneToOne, Index
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import * as bcrypt from 'bcrypt';
@@ -13,20 +13,21 @@ import { UserProfileConfig } from './user-profile-config.entity';
 import { UserNotificationConfig } from './user-notification-config.entity';
 
 @Entity('users')
+@Index(['email', 'tenantId'], { unique: true })
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({nullable: true})
   name: string;
 
-  @Column()
+  @Column({nullable: true})
   lastName: string;
 
-  @Column({ unique: true })
+  @Column({nullable: false})
   email: string;
 
-  @Column()
+  @Column({nullable: false})
   @Exclude()
   password: string;
 
@@ -54,6 +55,9 @@ export class User {
   @ManyToMany(() => Role, role => role.users, { eager: true }) // Eager si siempre lo necesitas
   @JoinTable()
   roles: Role[];
+
+  @OneToOne(() => UserConfig, config => config.user, { cascade: true })
+  config: UserConfig;
 
   // Relaciones con las configuraciones
   @OneToOne(() => UserProfileConfig, config => config.user, { cascade: true })

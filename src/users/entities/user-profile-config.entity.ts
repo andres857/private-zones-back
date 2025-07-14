@@ -31,13 +31,13 @@ export class UserProfileConfig {
     documentNumber: string; // Número de documento de identificación
 
     @Column({ nullable: true })
-    Organization: string; // Nombre de la organización o empresa
+    organization: string; // Nombre de la organización o empresa
 
     @Column({ nullable: true })
-    Charge: string; // Cargo o puesto en la organización
+    charge: string; // Cargo o puesto en la organización
 
     @Column({ nullable: true })
-    Genger: string; // Género del usuario (Masculino, Femenino, Otro)
+    genger: string; // Género del usuario (Masculino, Femenino, Otro)
 
     @Column({ nullable: true })
     City: string; // Ciudad de residencia

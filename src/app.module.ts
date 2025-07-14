@@ -25,6 +25,9 @@ import { TenantProduct } from './tenants/entities/tenant-product.entity';
 import { Subscription } from './tenants/entities/suscription-tenant.entity';
 import { TenantViewConfig } from './tenants/entities/tenant-view-config.entity';
 import { TenantComponentConfig } from './tenants/entities/tenant-component-config.entity';
+import { UserConfig } from './users/entities/user-config.entity';
+import { UserProfileConfig } from './users/entities/user-profile-config.entity';
+import { UserNotificationConfig } from './users/entities/user-notification-config.entity';
 
 
 @Module({
@@ -40,7 +43,7 @@ import { TenantComponentConfig } from './tenants/entities/tenant-component-confi
       database: process.env.DATABASE_NAME || 'net_db',
       username: process.env.DATABASE_USER || 'postgres',
       password: process.env.DATABASE_PASSWORD || 'postgres',
-      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, TenantViewConfig, TenantComponentConfig, Subscription],
+      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, TenantViewConfig, TenantComponentConfig, Subscription, UserConfig, UserProfileConfig, UserNotificationConfig],
       synchronize: true,
     }),
     UsersModule,
