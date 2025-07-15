@@ -132,7 +132,7 @@ export class CourseConfiguration {
   @Column({ default: false })
   requiresApproval: boolean; // Requiere aprobación para inscribirse
 
-  @Column({ default: false })
+  @Column({ default: true })
   allowSelfEnrollment: boolean; // Permite auto-inscripción
 
   // Prerrequisitos
@@ -143,15 +143,15 @@ export class CourseConfiguration {
   prerequisites: string[]; // IDs de cursos prerequisito
 
   // Configuración de evaluación
-  @Column({ nullable: true })
-  passingGrade: number; // Nota mínima para aprobar
+  // @Column({ nullable: true })
+  // passingGrade: number; // Nota mínima para aprobar
 
   // Configuración de certificación
-  @Column({ default: false })
-  generatesCertificate: boolean; // Genera certificado
+  // @Column({ default: false })
+  // generatesCertificate: boolean; // Genera certificado
 
-  @Column({ nullable: true })
-  certificateTemplate: string; // Plantilla del certificado
+  // @Column({ nullable: true })
+  // certificateTemplate: string; // Plantilla del certificado
 
   // Metadatos adicionales
   @Column({
