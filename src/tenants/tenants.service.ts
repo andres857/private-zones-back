@@ -880,7 +880,7 @@ export class TenantsService {
     console.log('Finding tenant by domain:', domain);
     const tenant = await this.tenantRepository.findOne({
       where: { domain: domain },
-      relations: ['config', 'contactInfo']
+      relations: ['config', 'contactInfo', 'componentConfigs']
     });
     console.log('Found tenant:', tenant);
     if (!tenant) {  
