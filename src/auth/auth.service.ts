@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Request } from 'express';
 import { RolesService } from 'src/roles/roles.service';
 import { TenantsService } from 'src/tenants/tenants.service';
+import { CreateUserDto } from 'src/users/dto/create-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -56,61 +57,81 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto, req: Request): Promise<{msg: string}> {
+    // ✅ Log correcto
+    this.logger.log(`Logs register: ${JSON.stringify(registerDto)}`);
 
-    this.logger.log(`Logs register: ${RegisterDto}`);
+    try {
+      // Revisar si usuario ya existe
+      const existingUser = await this.usersService.findByEmailRegister(registerDto.email);
+      if (existingUser) {
+        throw new ConflictException('Este usuario ya existe');
+      }
 
-    // Revisar si usuario ya existe
-    const existingUser = await this.usersService.findByEmailRegister(registerDto.email);
-    if (existingUser) {
-      throw new ConflictException('Este usuario ya existe');
-    }
+      // if(!registerDto.name || !registerDto.lastName) {
+      //   throw new BadRequestException('El nombre y apellido son obligatorios');
+      // }else if (!registerDto.password) {
+      //   throw new BadRequestException('La contraseña es obligatoria');
+      // }else if (!registerDto.tenantId) {
+      //   throw new BadRequestException('El tenantId es obligatorio');
+      // }
 
-    if(!registerDto.name || !registerDto.lastName) {
-      throw new BadRequestException('El nombre y apellido son obligatorios');
-    }else if (!registerDto.password) {
-      throw new BadRequestException('La contraseña es obligatoria');
-    }else if (!registerDto.tenantId) {
-      throw new BadRequestException('El tenantId es obligatorio');
-    }
-
-    const tenantId = registerDto.tenantId; // tomar tenant del dto
-
-    this.logger.log(`Registrando usuario para el tenant: ${tenantId}`);
-  
-    const roleName = registerDto.role; // Ya es de tipo UserRole por la validación
-  
-    if (!roleName) {
-      throw new ConflictException('Ups, parece que no existen roles');
-    }
-  
-    // Validación adicional si es necesario
-    const validRoles = Object.values(UserRole);
-    if (!validRoles.includes(roleName)) {
-      throw new ConflictException(`El rol "${roleName}" no es válido. Roles válidos: ${validRoles.join(', ')}`);
-    }
-  
-    // Buscar el rol en la base de datos
-    const roleEntity = await this.rolesServices.findByName(roleName);
-    if (!roleEntity) {
+      this.logger.log(`Registrando usuario para el tenant: ${registerDto.tenantId}`);
+    
+      const roleName = registerDto.role;
+    
+      if (!roleName) {
+        throw new ConflictException('El rol es requerido');
+      }
+    
+      // Validación adicional del rol
+      const validRoles = Object.values(UserRole);
+      if (!validRoles.includes(roleName)) {
+        throw new ConflictException(`El rol "${roleName}" no es válido. Roles válidos: ${validRoles.join(', ')}`);
+      }
+    
+      // Buscar el rol en la base de datos
+      const roleEntity = await this.rolesServices.findByName(roleName);
+      if (!roleEntity) {
         throw new ConflictException(`El rol "${roleName}" no se encontró en la base de datos.`);
-    }
+      }
 
-    // Crear usuario sin incluir roles en el objeto
-    const userData = {
+      // ✅ Crear userData que coincida con CreateUserDto
+      const userData: CreateUserDto = {
         email: registerDto.email,
         password: registerDto.password,
         name: registerDto.name,
         lastName: registerDto.lastName,
-        tenantId: tenantId,
-    };
+        tenantId: registerDto.tenantId,
+        isActive: true, // valor por defecto
+        // Configuración de notificaciones por defecto para nuevos usuarios
+        notificationConfig: {
+          enableNotifications: true,     // Activar notificaciones generales
+          smsNotifications: false,       // SMS desactivado por defecto
+          browserNotifications: true,    // Notificaciones del navegador activadas
+          securityAlerts: true,          // Alertas de seguridad siempre activadas
+          accountUpdates: true,          // Actualizaciones de cuenta activadas
+          systemUpdates: false,          // Actualizaciones del sistema desactivadas
+          marketingEmails: false,        // Marketing desactivado por defecto
+          newsletterEmails: false,       // Newsletter desactivado por defecto
+          reminders: true,               // Recordatorios activados
+          mentions: true,                // Menciones activadas
+          directMessages: true           // Mensajes directos activados
+        }
+      };
 
-    // Pasar los role entities por separado
-    const newUser = await this.usersService.create(userData, [roleEntity]);
-  
-    // return this.generateTokens(newUser, req);
-    return {
-      msg: 'Usuario creado correctamente',
-    };
+      // Crear usuario con role entity
+      const newUser = await this.usersService.create(userData, [roleEntity]);
+      
+      this.logger.log(`Usuario creado exitosamente: ${newUser.id}`);
+    
+      return {
+        msg: 'Usuario creado correctamente',
+      };
+      
+    } catch (error) {
+      this.logger.error('Error en registro de usuario:', error);
+      throw error; // Re-lanzar para que el interceptor lo maneje
+    }
   }
   
 
@@ -249,7 +270,11 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
+        lastName: user.lastName,
+        isActive: user.isActive,
         roles: roleNames,
+        profileConfig: user.profileConfig,
+        notificationConfig: user.notificationConfig,
       },
     };
   }
