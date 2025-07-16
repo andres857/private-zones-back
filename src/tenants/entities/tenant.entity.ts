@@ -12,6 +12,8 @@ import { User } from '../../users/entities/user.entity';
 import { TenantProduct } from './tenant-product.entity';
 import { Subscription } from './suscription-tenant.entity';
 import { TenantComponentConfig } from './tenant-component-config.entity';
+import { Courses } from 'src/courses/entities/courses.entity';
+import { Section } from 'src/sections/entities/sections.entity';
 
 @Entity()
 export class Tenant {
@@ -63,5 +65,11 @@ export class Tenant {
 
   @OneToMany(() => Subscription, subscription => subscription.tenant)
   subscriptions: Subscription[];
+
+  @OneToMany(() => Section, section => section.tenant)
+  sections: Section[];
+
+  @OneToMany(() => Courses, course => course.tenant)
+  courses: Courses[];
 
 }

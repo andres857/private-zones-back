@@ -28,6 +28,12 @@ import { TenantComponentConfig } from './tenants/entities/tenant-component-confi
 import { UserConfig } from './users/entities/user-config.entity';
 import { UserProfileConfig } from './users/entities/user-profile-config.entity';
 import { UserNotificationConfig } from './users/entities/user-notification-config.entity';
+import { SectionsModule } from './sections/sections.module';
+import { Section } from './sections/entities/sections.entity';
+import { Courses } from './courses/entities/courses.entity';
+import { CourseConfiguration } from './courses/entities/courses-config.entity';
+import { CourseTranslation } from './courses/entities/courses-translations.entity';
+import { CoursesViewsConfig } from './courses/entities/courses-view-config.entity';
 
 
 @Module({
@@ -43,7 +49,7 @@ import { UserNotificationConfig } from './users/entities/user-notification-confi
       database: process.env.DATABASE_NAME || 'net_db',
       username: process.env.DATABASE_USER || 'postgres',
       password: process.env.DATABASE_PASSWORD || 'postgres',
-      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, TenantViewConfig, TenantComponentConfig, Subscription, UserConfig, UserProfileConfig, UserNotificationConfig],
+      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, TenantViewConfig, TenantComponentConfig, Subscription, UserConfig, UserProfileConfig, UserNotificationConfig, Section, Courses, CourseConfiguration, CourseTranslation, CoursesViewsConfig],
       synchronize: true,
     }),
     UsersModule,
@@ -53,7 +59,8 @@ import { UserNotificationConfig } from './users/entities/user-notification-confi
     GatewayPaymentModule,
     AuthModule,
     CoursesModule,
-    PrivateZonesModule
+    PrivateZonesModule,
+    SectionsModule
   ],
   controllers: [AppController],
   providers: [AppService, EventsGateway],

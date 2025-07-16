@@ -10,6 +10,7 @@ import { Tenant } from 'src/tenants/entities/tenant.entity';
 import { CourseConfiguration } from './courses-config.entity';
 import { CourseTranslation } from './courses-translations.entity';
 import { CoursesViewsConfig } from './courses-view-config.entity'
+import { Section } from 'src/sections/entities/sections.entity';
 
 @Entity('courses')
 export class Courses {
@@ -19,12 +20,16 @@ export class Courses {
   @Column({ unique: true })
   slug: string; // ej: "curso-induccion-la-cardio"
 
-  @ManyToOne(() => Tenant, tenant => tenant.users)
+  @ManyToOne(() => Tenant, tenant => tenant.courses)
   @JoinColumn({ name: 'tenantId' })
   tenant: Tenant;
 
   @Column()
   tenantId: string;
+
+  @ManyToOne(() => Section, section => section.courses)
+  @JoinColumn({ name: 'sectionId' })
+  section: Section;
 
   @Column({ default: true })
   isActive: boolean;
