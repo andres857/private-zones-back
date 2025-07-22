@@ -28,6 +28,38 @@ export class RegisterDto {
     @IsNotEmpty()
     // @IsUUID()
     tenantId: string;
+
+    @IsOptional()
+    @IsString()
+    document: string; // Número de identificación o documento
+
+    @IsOptional()
+    @IsString()
+    organization: string;
+
+    @IsOptional()
+    @IsString()
+    position: string; // Cargo o puesto en la organización
+
+    @IsOptional()
+    @IsString()
+    gender: string;
+
+    @IsOptional()
+    @IsString()
+    city: string;
+
+    @IsOptional()
+    @IsString()
+    address: string;
+
+    @IsOptional()
+    @IsString()
+    phone: string;
+
+    @IsOptional()
+    @IsString()
+    documentType: string;
   
     @IsNotEmpty()
     @IsEnum(UserRole, { message: 'Invalid role' })

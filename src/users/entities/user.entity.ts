@@ -73,15 +73,32 @@ export class User {
   updatedAt: Date;
 
   @BeforeInsert()
-  @BeforeUpdate()
   async hashPassword() {
-    if (this.password) {
-      const salt = await bcrypt.genSalt();
+    // Solo hashear si la contraseña no está ya hasheada
+    if (this.password && !this.isPasswordHashed()) {
+      console.log('Hashing password for user:', this.email);
+      const salt = await bcrypt.genSalt(10);
       this.password = await bcrypt.hash(this.password, salt);
     }
   }
 
   async comparePassword(attempt: string): Promise<boolean> {
-    return bcrypt.compare(attempt, this.password);
+    try {
+      const result = await bcrypt.compare(attempt, this.password);
+      return result;
+    } catch (error) {
+      console.error('Error comparing password:', error);
+      return false;
+    }
+  }
+
+  private isPasswordHashed(): boolean {
+    // Los hashes de bcrypt siempre empiezan con $2b$ y tienen 60 caracteres
+    return this.password.startsWith('$2b$') && this.password.length === 60;
+  }
+
+  async updatePassword(newPassword: string): Promise<void> {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(newPassword, salt);
   }
 }

@@ -30,30 +30,64 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   async validateUser(email: string, password: string): Promise<any> {
-    const user = await this.usersService.findByEmail(email);
+    try {
 
-    this.logger.log(JSON.stringify(user));
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-    
-    if (!user.isActive) {
-      throw new ForbiddenException('User account is inactive');
-    }
+      const user = await this.usersService.findByEmail(email);
+      console.log('📊 Usuario encontrado:', !!user);
 
-    this.logger.log('Validando contrasena para el usuario:', user.email);
-    
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      if (!user) {
+        console.log('❌ Usuario no encontrado');
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      
+      if (!user.isActive) {
+        console.log('❌ Usuario inactivo');
+        throw new ForbiddenException('User account is inactive');
+      }
+      
+      // Verificar que el password y la función comparePassword existen
+      if (!user.comparePassword) {
+        console.error('❌ Método comparePassword no existe en la entidad User');
+        throw new Error('User entity missing comparePassword method');
+      }
+
+      const isPasswordValid = await user.comparePassword(password);
+      
+      if (!isPasswordValid) {
+        console.log('❌ Contraseña inválida');
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      
+      console.log('✅ Usuario validado exitosamente');
+      return user;
+      
+    } catch (error) {
+      console.error('💥 Error en validateUser:', error.message);
+      console.error('📍 Stack trace:', error.stack);
+      
+      // Re-lanzar errores conocidos
+      if (error instanceof UnauthorizedException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      
+      // Para errores inesperados, lanzar error genérico
+      throw new UnauthorizedException('Authentication failed');
     }
-    
-    return user;
   }
 
   async login(req: Request): Promise<TokensResponseDto> {
-    const user = await this.validateUser(req.body.email, req.body.password);
-    return this.generateTokens(user, req);
+    try {
+      const user = await this.validateUser(req.body.email, req.body.password);
+      console.log('✅ Usuario validado, generando tokens...');
+      
+      const tokens = await this.generateTokens(user, req);
+      console.log('✅ Tokens generados exitosamente');
+      
+      return tokens;
+    } catch (error) {
+      console.error('💥 Error en login:', error.message);
+      throw error;
+    }
   }
 
   async register(registerDto: RegisterDto, req: Request): Promise<{msg: string}> {
@@ -103,6 +137,17 @@ export class AuthService {
         lastName: registerDto.lastName,
         tenantId: registerDto.tenantId,
         isActive: true, // valor por defecto
+
+        profileConfig: {
+          type_document: registerDto.documentType,
+          documentNumber: registerDto.document,
+          organization: registerDto.organization,
+          phoneNumber: registerDto.phone,
+          charge: registerDto.position,
+          gender: registerDto.gender,
+          city: registerDto.city,
+          address: registerDto.address,
+        },
         // Configuración de notificaciones por defecto para nuevos usuarios
         notificationConfig: {
           enableNotifications: true,     // Activar notificaciones generales
