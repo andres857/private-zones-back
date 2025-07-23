@@ -395,7 +395,9 @@ export class TenantsService {
       where: { id },
       relations: [
         'config',
-        'contactInfo'
+        'contactInfo',
+        'viewConfigs',
+        'componentConfigs'
       ]
     });
     
