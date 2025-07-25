@@ -3,6 +3,7 @@ import { Repository } from 'typeorm';
 import { Section } from './entities/sections.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FilterSectionsDto, SectionListResponseDto, SectionStatsDto } from './dto/filter-sections.dto';
+import { CreateSectionDto } from './dto/create-section.dto';
 
 @Injectable()
 export class SectionsService {
@@ -93,5 +94,10 @@ export class SectionsService {
           throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
         }
         return user;
+    }
+
+    async createSection(createSectionDto: CreateSectionDto): Promise<Section> {
+        const section = this.sectionsRepository.create(createSectionDto);
+        return this.sectionsRepository.save(section);
     }
 }

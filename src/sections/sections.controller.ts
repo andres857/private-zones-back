@@ -1,7 +1,9 @@
-import { Controller, Get, Logger, Param, ParseUUIDPipe, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Logger, Param, ParseUUIDPipe, Post, Query, UseInterceptors } from '@nestjs/common';
 import { FilterSectionsDto, SectionListResponseDto, SectionStatsDto } from './dto/filter-sections.dto';
 import { SectionsService } from './sections.service';
 import { Section } from './entities/sections.entity';
+import { CreateSectionDto } from './dto/create-section.dto';
+import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
 
 @Controller('sections')
 export class SectionsController {
@@ -23,5 +25,14 @@ export class SectionsController {
     @Get(':id')
     findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Section> {
         return this.sectionsService.findOne(id);
+    }
+
+    @UseInterceptors(
+        TenantValidationInterceptor // Interceptor de tenant
+    )
+    @Post('create')
+    @HttpCode(HttpStatus.CREATED)
+    async createSection(@Body() createSectionDto: CreateSectionDto): Promise<Section> {
+        return this.sectionsService.createSection(createSectionDto);
     }
 }

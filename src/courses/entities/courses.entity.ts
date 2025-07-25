@@ -2,7 +2,8 @@
 import {
   Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn,
   BeforeInsert, BeforeUpdate, OneToMany, ManyToMany, JoinTable, ManyToOne, JoinColumn,
-  OneToOne
+  OneToOne,
+  DeleteDateColumn
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import * as bcrypt from 'bcrypt';
@@ -27,27 +28,39 @@ export class Courses {
   @Column()
   tenantId: string;
 
-  @ManyToOne(() => Section, section => section.courses)
-  @JoinColumn({ name: 'sectionId' })
-  section: Section;
+  // ManyToMany
+  @ManyToMany(() => Section, section => section.courses)
+  @JoinTable({
+    name: 'courses_sections', // nombre de la tabla intermedia
+    joinColumn: {
+      name: 'courseId',
+      referencedColumnName: 'id'
+    },
+    inverseJoinColumn: {
+      name: 'sectionId',
+      referencedColumnName: 'id'
+    }
+  })
+  sections: Section[];
 
   @Column({ default: true })
   isActive: boolean;
 
   @CreateDateColumn()
-  createdAt: Date;
+  created_at: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updated_at: Date;
 
-  // Relación uno a uno con la configuración del curso
+  @DeleteDateColumn()
+  deleted_at: Date;
+
   @OneToOne(() => CourseConfiguration, config => config.course, { 
     cascade: true, 
     eager: false 
   })
   configuration: CourseConfiguration;
 
-  // Relación uno a muchos con las traducciones
   @OneToMany(() => CourseTranslation, translation => translation.course, { 
     cascade: true, 
     eager: false 
@@ -62,9 +75,13 @@ export class Courses {
     return this.translations?.find(t => t.languageCode === languageCode);
   }
 
-  // Método helper para obtener el título traducido
   getTranslatedTitle(languageCode: string = 'es'): string {
     const translation = this.getTranslation(languageCode);
     return translation?.title || this.slug;
+  }
+
+  // Método helper para verificar si pertenece a una sección
+  belongsToSection(sectionId: string): boolean {
+    return this.sections?.some(section => section.id === sectionId) || false;
   }
 }
