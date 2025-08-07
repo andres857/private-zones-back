@@ -34,6 +34,15 @@ import { Courses } from './courses/entities/courses.entity';
 import { CourseConfiguration } from './courses/entities/courses-config.entity';
 import { CourseTranslation } from './courses/entities/courses-translations.entity';
 import { CoursesViewsConfig } from './courses/entities/courses-view-config.entity';
+import { CourseModule } from './courses/entities/courses-modules.entity';
+import { CourseModuleConfig } from './courses/entities/courses-modules-config.entity';
+import { ModuleItem } from './courses/entities/courses-modules-item.entity';
+import { ContentItem } from './courses/entities/courses-contents.entity';
+import { Forum } from './courses/entities/courses-forums.entity';
+import { Task } from './courses/entities/courses-tasks.entity';
+import { TaskConfig } from './courses/entities/courses-tasks-config.entity';
+import { Quiz } from './courses/entities/courses-quizzes.entity';
+import { Survey } from './courses/entities/courses-surveys.entity';
 
 
 @Module({
@@ -49,7 +58,7 @@ import { CoursesViewsConfig } from './courses/entities/courses-view-config.entit
       database: process.env.DATABASE_NAME || 'net_db',
       username: process.env.DATABASE_USER || 'postgres',
       password: process.env.DATABASE_PASSWORD || 'postgres',
-      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, TenantViewConfig, TenantComponentConfig, Subscription, UserConfig, UserProfileConfig, UserNotificationConfig, Section, Courses, CourseConfiguration, CourseTranslation, CoursesViewsConfig],
+      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, TenantViewConfig, TenantComponentConfig, Subscription, UserConfig, UserProfileConfig, UserNotificationConfig, Section, Courses, CourseConfiguration, CourseTranslation, CoursesViewsConfig, CourseModule, CourseModuleConfig, ModuleItem, ContentItem, Forum, Task, TaskConfig, Quiz, Survey],
       synchronize: true,
     }),
     UsersModule,
