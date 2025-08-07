@@ -12,6 +12,8 @@ import { CourseConfiguration } from './courses-config.entity';
 import { CourseTranslation } from './courses-translations.entity';
 import { CoursesViewsConfig } from './courses-view-config.entity'
 import { Section } from 'src/sections/entities/sections.entity';
+import { CourseModule } from './courses-modules.entity';
+import { ModuleItem } from './courses-modules-item.entity';
 
 @Entity('courses')
 export class Courses {
@@ -55,6 +57,9 @@ export class Courses {
   @DeleteDateColumn()
   deleted_at: Date;
 
+  @OneToMany(() => CourseModule, module => module.course, { cascade: true })
+  modules: CourseModule[];
+
   @OneToOne(() => CourseConfiguration, config => config.course, { 
     cascade: true, 
     eager: false 
@@ -69,6 +74,11 @@ export class Courses {
 
   @OneToMany(() => CoursesViewsConfig, viewConfig => viewConfig.course, { cascade: true })
   viewsConfig: CoursesViewsConfig[];
+
+  // Helper para obtener todos los ítems del curso
+  getAllItems(): ModuleItem[] {
+    return this.modules?.flatMap(module => module.items) || [];
+  }
 
   // Método helper para obtener traducción por idioma
   getTranslation(languageCode: string): CourseTranslation | undefined {

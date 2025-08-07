@@ -4,13 +4,36 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Courses } from './entities/courses.entity';
 import { CreateCourseDto } from './dto/create-course.dto';
+import { TenantsService } from 'src/tenants/tenants.service';
 
 @Injectable()
 export class CoursesService {
   constructor(
     @InjectRepository(Courses)
     private readonly courseRepository: Repository<Courses>,
+
+    private readonly tenantsService: TenantsService,
   ) {}
+
+  async findByTenant(tenantDomain: string): Promise<Courses[]> {
+    try {
+      const tenantId = await this.tenantsService.getTenantIdByDomain(tenantDomain);
+
+      console.log(`Buscando cursos para el tenant con ID: ${tenantId}`);
+
+      if (!tenantId) {
+        throw new BadRequestException('Tenant not found for the provided domain');
+      }
+
+      return await this.courseRepository.find({
+        where: { tenantId },
+        relations: ['translations', 'sections'],
+      });
+    } catch (error) {
+      console.error('Error al buscar cursos por tenant:', error);
+      throw new BadRequestException('Error al buscar cursos por tenant');
+    }
+  }
 
   /**
    * Verifica si una fecha es válida para PostgreSQL

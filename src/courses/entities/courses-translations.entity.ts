@@ -7,7 +7,7 @@ import {
 import { Tenant } from 'src/tenants/entities/tenant.entity';
 import { Courses } from './courses.entity';
 
-@Entity('course_translations')
+@Entity('courses_translations')
 export class CourseTranslation {
   @PrimaryGeneratedColumn('uuid')
   id: string;

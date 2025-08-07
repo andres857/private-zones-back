@@ -27,7 +27,7 @@ export enum CourseStatus {
   SUSPENDED = 'suspended'
 }
 
-@Entity('course_configurations')
+@Entity('courses_configurations')
 export class CourseConfiguration {
   @PrimaryGeneratedColumn('uuid')
   id: string;

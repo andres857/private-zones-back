@@ -10,6 +10,7 @@ import {
   } from '@nestjs/common';
   import { Observable } from 'rxjs';
   import { TenantsService } from '../../tenants/tenants.service';
+import { extractTenantDomainFromRequest } from 'src/utils/tenant.utils';
   
   @Injectable()
   export class TenantValidationInterceptor implements NestInterceptor {
@@ -67,7 +68,12 @@ import {
      */
     private extractTenantDomain(request: any): string | null {
       // 1. Prioridad: Header específico para tenant domain
-      const headerDomain = request.headers['x-tenant-domain'];
+      let headerDomain = request.headers['x-tenant-domain'];
+
+      if(headerDomain == 'localhost'){
+        headerDomain = extractTenantDomainFromRequest(request);
+      }
+
       if (headerDomain) {
         this.logger.debug(`Domain from X-Tenant-Domain header: ${headerDomain}`);
         return headerDomain;
