@@ -1,9 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { In, Repository } from 'typeorm';
 import { Section } from './entities/sections.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FilterSectionsDto, SectionListResponseDto, SectionStatsDto } from './dto/filter-sections.dto';
 import { CreateSectionDto } from './dto/create-section.dto';
+import { Courses } from 'src/courses/entities/courses.entity';
+import { UpdateSectionDto } from './dto/update-section.dto';
+import { TenantsService } from 'src/tenants/tenants.service';
+import { Tenant } from 'src/tenants/entities/tenant.entity';
+import { extractTenantSlugFromRequest } from 'src/utils/tenant.utils';
 
 @Injectable()
 export class SectionsService {
@@ -11,9 +16,27 @@ export class SectionsService {
     constructor(
         @InjectRepository(Section)
         private sectionsRepository: Repository<Section>,
+        @InjectRepository(Courses)
+        private coursesRepository: Repository<Courses>,
+
+        private readonly tenantsService: TenantsService,
     ) {}
 
-    async findAllWithFilters(filters: FilterSectionsDto): Promise<SectionListResponseDto> {
+    // Método para incluir cursos
+    async findOneWithCourses(id: string): Promise<Section> {
+        const section = await this.sectionsRepository.findOne({
+            where: { id },
+            relations: ['courses', 'courses.configuration', 'courses.translations'],
+        });
+
+        if (!section) {
+            throw new NotFoundException(`Section with ID ${id} not found`);
+        }
+
+        return section;
+    }
+
+    async findAllWithFilters(filters: FilterSectionsDto, request): Promise<SectionListResponseDto> {
         const {
         search,
         isActive, // No existe en Section, lo omitiremos (o puedes agregarlo si es necesario)
@@ -24,10 +47,25 @@ export class SectionsService {
         sortOrder = 'DESC'
         } = filters;
 
-        console.log('Filtros recibidos:', filters);
+        console.log('tenant', request.headers);
+
+        const tenantSlug = extractTenantSlugFromRequest(request);
+
+        if (!tenantSlug) {
+            throw new Error('No se pudo extraer el slug del tenant desde los headers.');
+        }
+
+        const tenant = await this.tenantsService.findBySlug(tenantSlug);
+
+        if (!tenant) {
+            throw new Error(`Tenant no encontrado para slug: ${tenantSlug}`);
+        }
 
         const queryBuilder = this.sectionsRepository
         .createQueryBuilder('section')
+        .where('section.tenantId = :tenantId', { tenantId: tenant.id })
+        .leftJoinAndSelect('section.courses', 'courses')
+        .leftJoinAndSelect('courses.configuration', 'config');
         // .leftJoinAndSelect('section.tenant', 'tenant')
         // .leftJoinAndSelect('section.courses', 'courses');
 
@@ -88,16 +126,92 @@ export class SectionsService {
     }
 
     async findOne(id: string): Promise<Section> {
-        const user = await this.sectionsRepository.findOne({ where: { id } });
+        const section = await this.sectionsRepository.findOne({ where: { id }, relations: ['courses', 'courses.configuration', 'courses.translations'] });
 
-        if (!user) {
-          throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+        if (!section) {
+          throw new NotFoundException(`Seccion con ID ${id} no encontrado`);
         }
-        return user;
+        return section;
     }
 
     async createSection(createSectionDto: CreateSectionDto): Promise<Section> {
         const section = this.sectionsRepository.create(createSectionDto);
         return this.sectionsRepository.save(section);
+    }
+
+    // Método crear con cursos
+    async createSectionWithCourses(createSectionDto: CreateSectionDto): Promise<Section> {
+        const { courseIds, ...sectionData } = createSectionDto;
+
+        // Verificar que el slug no esté en uso
+        const existingSection = await this.sectionsRepository.findOne({
+            where: { slug: sectionData.slug }
+        });
+
+        if (existingSection) {
+            throw new ConflictException(`Section with slug '${sectionData.slug}' already exists`);
+        }
+
+        // Crear la sección
+        const section = this.sectionsRepository.create(sectionData);
+        
+        // Si hay cursos especificados, asociarlos
+        if (courseIds && courseIds.length > 0) {
+            const courses = await this.coursesRepository.find({
+                where: { 
+                    id: In(courseIds),
+                    tenantId: sectionData.tenantId // Asegurar que pertenecen al mismo tenant
+                }
+            });
+
+            if (courses.length !== courseIds.length) {
+                throw new NotFoundException('Some courses were not found or do not belong to this tenant');
+            }
+
+            section.courses = courses;
+        }
+
+        return await this.sectionsRepository.save(section);
+    }
+
+    // Método para actualizar con cursos
+    async updateSectionWithCourses(id: string, updateSectionDto: UpdateSectionDto): Promise<Section> {
+        const { courseIds, ...sectionData } = updateSectionDto;
+
+        // Buscar la sección existente
+        const section = await this.findOneWithCourses(id);
+
+        // Actualizar propiedades básicas
+        Object.assign(section, sectionData);
+
+        // Si se especificaron cursos, actualizar la asociación
+        if (courseIds !== undefined) {
+            if (courseIds.length > 0) {
+                const courses = await this.coursesRepository.find({
+                    where: { 
+                        id: In(courseIds),
+                        tenantId: section.tenantId // Asegurar que pertenecen al mismo tenant
+                    }
+                });
+
+                if (courses.length !== courseIds.length) {
+                    throw new NotFoundException('Some courses were not found or do not belong to this tenant');
+                }
+
+                section.courses = courses;
+            } else {
+                // Si courseIds está vacío, remover todas las asociaciones
+                section.courses = [];
+            }
+        }
+
+        return await this.sectionsRepository.save(section);
+    }
+
+    async checkSlugExists(slug: string): Promise<boolean> {
+        const section = await this.sectionsRepository.findOne({
+            where: { slug }
+        });
+        return !!section;
     }
 }

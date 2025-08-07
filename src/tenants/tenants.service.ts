@@ -48,6 +48,16 @@ export class TenantsService {
     private laravelWebhookService: LaravelWebhookService,
   ) { }
 
+
+  async getTenantIdByDomain(domain: string): Promise<string | null> {
+    const tenant = await this.tenantRepository.findOne({
+      where: { domain },
+      select: ['id'],
+    });
+
+    return tenant?.id ?? null;
+  }
+
   async toggleActive(tenantId: string): Promise<{ status: boolean; message: string }> {
     try {
       // Buscar el tenant con su configuración
@@ -417,6 +427,33 @@ export class TenantsService {
 
     return tenant;
   }
+
+  async findBySlug(slug: string): Promise<Tenant> {
+    const tenant = await this.tenantRepository.findOne({
+      where: { slug },
+      relations: [
+        'config',
+        'contactInfo',
+        'viewConfigs',
+        'componentConfigs'
+      ]
+    });
+
+    if (!tenant) {
+      throw new NotFoundException(`Tenant con slug '${slug}' no encontrado`);
+    }
+
+    const totalUsers = await this.userRepository.count({
+      where: { tenant: { slug } }
+    });
+
+    if (tenant.config) {
+      (tenant.config as any).currentUsers = totalUsers;
+    }
+
+    return tenant;
+  }
+
 
   async checkClientSubscriptionStatus(clientId: string) {
     // Buscar el tenant por client_id_mz

@@ -6,10 +6,12 @@ import { Section } from './entities/sections.entity';
 import { TenantsService } from 'src/tenants/tenants.service';
 import { TenantsModule } from 'src/tenants/tenants.module';
 import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
+import { Courses } from 'src/courses/entities/courses.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Section]), TenantsModule],
+  imports: [TypeOrmModule.forFeature([Section, Courses]), TenantsModule],
   controllers: [SectionsController],
-  providers: [SectionsService, TenantValidationInterceptor]
+  providers: [SectionsService, TenantValidationInterceptor],
+  exports: [SectionsService],
 })
 export class SectionsModule {}

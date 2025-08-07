@@ -11,7 +11,8 @@ import {
     IsJSON,
     IsArray,
     IsBoolean,
-    ValidateNested
+    ValidateNested,
+    IsUUID
 } from 'class-validator';
 // import { ViewType } from '../entities/tenant-view-config.entity';
 
@@ -83,4 +84,9 @@ export class CreateSectionDto {
         maxUsers?: number;
         storageLimit?: number;
     }
+
+    @IsOptional()
+    @IsArray()
+    @IsUUID('4', { each: true })
+    courseIds?: string[];
 }

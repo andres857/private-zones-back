@@ -18,7 +18,7 @@ export class Section {
     @Column({ unique: true })
     slug: string; // ej: "colaboradores"
 
-    @Column({ unique: true })
+    @Column({nullable: false})
     name: string;
 
     @Column({ nullable: true, type: 'text' })
