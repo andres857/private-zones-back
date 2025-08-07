@@ -14,6 +14,11 @@ import { Subscription } from './suscription-tenant.entity';
 import { TenantComponentConfig } from './tenant-component-config.entity';
 import { Courses } from 'src/courses/entities/courses.entity';
 import { Section } from 'src/sections/entities/sections.entity';
+import { ContentItem } from 'src/courses/entities/courses-contents.entity';
+import { Forum } from 'src/courses/entities/courses-forums.entity';
+import { Task } from 'src/courses/entities/courses-tasks.entity';
+import { Quiz } from 'src/courses/entities/courses-quizzes.entity';
+import { Survey } from 'src/courses/entities/courses-surveys.entity';
 
 @Entity()
 export class Tenant {
@@ -71,5 +76,20 @@ export class Tenant {
 
   @OneToMany(() => Courses, course => course.tenant)
   courses: Courses[];
+
+  @OneToMany(() => ContentItem, content => content.tenant)
+  contents: ContentItem[];
+
+  @OneToMany(() => Forum, forum => forum.tenant)
+  forums: Forum[];
+
+  @OneToMany(() => Task, task => task.tenant)
+  tasks: Task[];
+
+  @OneToMany(() => Quiz, quiz => quiz.tenant)
+  quizzes: Quiz[];
+
+  @OneToMany(() => Survey, survey => survey.tenant)
+  surveys: Survey[];
 
 }
