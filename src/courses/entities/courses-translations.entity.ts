@@ -29,7 +29,7 @@ export class CourseTranslation {
   title: string; // Título del curso traducido
 
   @Column({ type: 'text', nullable: true })
-  description: string; // Descripción traducida
+  description: string | null; // Descripción traducida
 
   // Metadatos traducibles
   @Column({
@@ -43,8 +43,8 @@ export class CourseTranslation {
   };
 
   @CreateDateColumn()
-  createdAt: Date;
+  create_at: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updated_at: Date;
 }

@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
 import { SocketIoAdapter } from './socket-io-adapter';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 
 // Función helper para extraer errores anidados
@@ -48,6 +49,15 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     credentials: true,
   };
+
+  const config = new DocumentBuilder()
+    .setTitle('Kalm System API')
+    .setDescription('API documentation for Kalm System')
+    .setVersion('1.0')
+    .addTag('klm-system')
+    .build();
+  const documentFactory = () => SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, documentFactory);
 
   app.useWebSocketAdapter(new SocketIoAdapter(app, corsOptions));
   app.setGlobalPrefix('v1');

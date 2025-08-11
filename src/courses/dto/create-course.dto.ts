@@ -11,8 +11,10 @@ import {
   IsJSON,
   IsArray,
   IsBoolean,
-  ValidateNested
+  ValidateNested,
+  IsObject
 } from 'class-validator';
+import { CourseTranslationDto, CourseTranslationsDto } from './course-translation.dto';
 
 export class CreateCourseDto {
 
@@ -20,6 +22,13 @@ export class CreateCourseDto {
     @IsString({ message: 'El nombre debe ser una cadena de texto' })
     @Length(2, 100, { message: 'El nombre debe tener entre 2 y 100 caracteres' })
     title: string;
+
+    @IsNotEmpty({ message: 'El slug del curso es requerido' })
+    slug?: string;
+
+    @IsNotEmpty({ message: 'El tenant del curso es requerido' })
+    @IsString({ message: 'El tenant debe ser una cadena de texto' })
+    tenantId: string;
     
     @IsOptional()
     @IsString({ message: 'La descripción debe ser una cadena de texto' })
@@ -64,11 +73,11 @@ export class CreateCourseDto {
 
     @IsOptional()
     @IsString({message: 'La fecha de inicio deber ser una cadena de texto'})
-    start_date?: string;
+    startDate?: string;
 
     @IsOptional()
     @IsString({message: 'La fecha de fin deber ser una cadena de texto'})
-    end_date?: string;
+    endDate?: string;
 
     @IsOptional()
     @IsString({message: 'La fecha de inicio de inscripcion deber ser una cadena de texto'})
@@ -149,6 +158,24 @@ export class CreateCourseDto {
     @IsOptional()
     @IsBoolean({message: 'El activador de la vista de foros debe ser un booleano'})
     forumsViewActive?: boolean;
+
+    @IsOptional()
+    @IsObject({ message: 'Las traducciones deben ser un objeto con códigos de idioma como claves' })
+    @ValidateNested({ each: true })
+    @Type(() => CourseTranslationsDto)
+    translations?: Record<string, CourseTranslationsDto>;
+
+    @IsOptional()
+    @IsString({ 'message': 'El coverImageUrl debe ser una cadena de texto' })
+    coverImage: string;
+
+    @IsOptional()
+    @IsString({ 'message': 'El menuImage debe ser una cadena de texto' })
+    menuImage: string;
+
+    @IsOptional()
+    @IsString({ 'message': 'El thumbnailImage debe ser una cadena de texto' })
+    thumbnailImage: string;
 
     @IsOptional()
     created_at?: string;

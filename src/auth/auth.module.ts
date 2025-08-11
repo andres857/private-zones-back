@@ -13,6 +13,7 @@ import { User } from './entities/user.entity';
 import { RolesModule } from '../roles/roles.module';
 import { RefreshToken } from './entities/token.entity';
 import { TenantsModule } from 'src/tenants/tenants.module';
+import { JwtDebugUtil } from './utils/jwt-debug.util';
 
 @Module({
   imports: [
@@ -34,7 +35,7 @@ import { TenantsModule } from 'src/tenants/tenants.module';
     TenantsModule
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtRefreshStrategy],
+  providers: [AuthService, JwtStrategy, JwtRefreshStrategy, JwtDebugUtil],
   exports: [AuthService],
 })
 export class AuthModule {}

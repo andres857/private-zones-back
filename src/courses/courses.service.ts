@@ -1,10 +1,22 @@
 // courses.service.ts
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Courses } from './entities/courses.entity';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { TenantsService } from 'src/tenants/tenants.service';
+import { CourseTranslation } from './entities/courses-translations.entity';
+import { CourseTranslationDto } from './dto/course-translation.dto';
+import { ModuleItem, ModuleItemType } from './entities/courses-modules-item.entity';
+import { ContentItem } from './entities/courses-contents.entity';
+import { Forum } from './entities/courses-forums.entity';
+import { Task } from './entities/courses-tasks.entity';
+import { Quiz } from './entities/courses-quizzes.entity';
+import { Survey } from './entities/courses-surveys.entity';
+import { UserCourseProgress } from 'src/progress/entities/user-course-progress.entity';
+import { UserModuleProgress } from 'src/progress/entities/user-module-progress.entity';
+import { UserItemProgress } from 'src/progress/entities/user-item-progress.entity';
+import { CourseModule } from './entities/courses-modules.entity';
 
 @Injectable()
 export class CoursesService {
@@ -13,6 +25,27 @@ export class CoursesService {
     private readonly courseRepository: Repository<Courses>,
 
     private readonly tenantsService: TenantsService,
+
+    @InjectRepository(ContentItem)
+    private readonly contentRepository: Repository<ContentItem>,
+    @InjectRepository(Forum)
+    private readonly forumRepository: Repository<Forum>,
+    @InjectRepository(Task)
+    private readonly taskRepository: Repository<Task>,
+    @InjectRepository(Quiz)
+    private readonly quizRepository: Repository<Quiz>,
+    @InjectRepository(Survey)
+    private readonly surveyRepository: Repository<Survey>,
+    @InjectRepository(ModuleItem)
+    private readonly moduleItemRepository: Repository<ModuleItem>,
+    @InjectRepository(CourseTranslation)
+    private readonly courseTranslationRepository: Repository<CourseTranslation>,
+    @InjectRepository(UserCourseProgress)
+    private readonly userCourseProgressRepository: Repository<UserCourseProgress>,
+    @InjectRepository(UserModuleProgress)
+    private readonly userModuleProgressRepository: Repository<UserModuleProgress>,
+    @InjectRepository(UserItemProgress)
+    private readonly userItemProgressRepository: Repository<UserItemProgress>,
   ) {}
 
   async findByTenant(tenantDomain: string): Promise<Courses[]> {
@@ -52,52 +85,124 @@ export class CoursesService {
   /**
    * Crea un nuevo curso
    */
-async create(createCourseDto: CreateCourseDto): Promise<Courses> {
-  try {
-    console.log('DTO recibido:', createCourseDto);
+  async create(createCourseDto: CreateCourseDto): Promise<Courses> {
+    try {
+      console.log('DTO recibido:', createCourseDto);
+      
+      // Crear nueva instancia del curso
+      const course = new Courses();
+
+      // Generar slug único
+      course.slug = await this.generateUniqueSlug(createCourseDto, createCourseDto.tenantId);
+      console.log('Slug generado:', course.slug);
+
+      createCourseDto.slug = course.slug;
+      
+      // Preparar datos del curso (sin traducciones)
+      const courseData = this.prepareCourseData(createCourseDto);
+      
+      // Asignar propiedades al curso
+      Object.assign(course, courseData);
+      
+      // Procesar y crear traducciones
+      if (createCourseDto.translations) {
+        course.translations = await this.createTranslations(createCourseDto.translations);
+      }
+      
+      console.log('Objeto Course preparado:', course);
+      
+      // Guardar el curso con sus traducciones
+      return await this.courseRepository.save(course);
+      
+    } catch (error) {
+      console.error('Error completo:', error);
+      throw new BadRequestException(`Error al crear el curso: ${error.message}`);
+    }
+  }
+
+  private prepareCourseData(createCourseDto: CreateCourseDto): any {
+    const { translations, ...courseData } = createCourseDto;
     
-    const course = new Courses();
-    const courseData = { ...createCourseDto };
+    // Procesar fechas
+    const processedData: any = { ...courseData };
     
-    // Solo asignar fechas válidas
+    // Fechas de auditoría
     if (courseData.created_at && this.isValidDate(courseData.created_at)) {
-      course.created_at = new Date(courseData.created_at);
+      processedData.created_at = new Date(courseData.created_at);
     }
     
     if (courseData.updated_at && this.isValidDate(courseData.updated_at)) {
-      course.updated_at = new Date(courseData.updated_at);
+      processedData.updated_at = new Date(courseData.updated_at);
     }
     
     if (courseData.deleted_at && this.isValidDate(courseData.deleted_at)) {
-      course.deleted_at = new Date(courseData.deleted_at);
+      processedData.deleted_at = new Date(courseData.deleted_at);
     }
     
-    if (courseData.start_date && this.isValidDate(courseData.start_date)) {
-      course.configuration.startDate = new Date(courseData.start_date);
+    // Fechas de configuración del curso
+    if (courseData.startDate && this.isValidDate(courseData.startDate)) {
+      processedData.startDate = new Date(courseData.startDate);
     }
     
-    if (courseData.end_date && this.isValidDate(courseData.end_date)) {
-      course.configuration.endDate = new Date(courseData.end_date);
+    if (courseData.endDate && this.isValidDate(courseData.endDate)) {
+      processedData.endDate = new Date(courseData.endDate);
     }
     
-    // Eliminar las propiedades de fecha del objeto
-    delete courseData.created_at;
-    delete courseData.updated_at;
-    delete courseData.deleted_at;
-    delete courseData.start_date;
-    delete courseData.end_date;
+    if (courseData.enrollmentStartDate && this.isValidDate(courseData.enrollmentStartDate)) {
+      processedData.enrollmentStartDate = new Date(courseData.enrollmentStartDate);
+    }
     
-    // Asignar el resto de propiedades
-    Object.assign(course, courseData);
+    if (courseData.enrollmentEndDate && this.isValidDate(courseData.enrollmentEndDate)) {
+      processedData.enrollmentEndDate = new Date(courseData.enrollmentEndDate);
+    }
     
-    console.log('Objeto Course preparado:', course);
-    
-    return await this.courseRepository.save(course);
-  } catch (error) {
-    console.error('Error completo:', error);
-    throw new BadRequestException(`Error al crear el curso: ${error.message}`);
+    return processedData;
   }
-}
+
+  // Método auxiliar para validar códigos de idioma
+  private isValidLanguageCode(code: string): boolean {
+    const validLanguageCodes = [
+      'es', 'en', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'ko', 'zh',
+      'ar', 'hi', 'tr', 'pl', 'nl', 'sv', 'da', 'no', 'fi', 'he',
+      'pt-BR', 'en-US', 'en-GB', 'es-MX', 'fr-CA' // Incluir variantes regionales si las necesitas
+    ];
+    
+    return validLanguageCodes.includes(code);
+  }
+
+  private async createTranslations(
+    translationsData: Record<string, any>
+  ): Promise<CourseTranslation[]> {
+    const translations: CourseTranslation[] = [];
+    
+    for (const [languageCode, translationData] of Object.entries(translationsData)) {
+      try {
+        const translation = new CourseTranslation();
+        
+        translation.languageCode = languageCode;
+        translation.title = translationData.title;
+        translation.description = translationData.description ?? null;
+        
+        // Procesar metadata con valores por defecto
+        translation.metadata = {
+          tags: translationData.metadata?.tags || [],
+          keywords: translationData.metadata?.keywords || [],
+          customFields: translationData.metadata?.customFields || {},
+          ...translationData.metadata
+        };
+        
+        translations.push(translation);
+        
+      } catch (error) {
+        console.error(`Error procesando traducción para idioma ${languageCode}:`, error);
+        throw new BadRequestException(
+          `Error en la traducción del idioma '${languageCode}': ${error.message}`
+        );
+      }
+    }
+    
+    return translations;
+  }
 
   /**
    * Procesa datos legacy (desde clubs) y crea cursos
@@ -154,6 +259,355 @@ async create(createCourseDto: CreateCourseDto): Promise<Courses> {
     return course;
   }
 
+  // Método optimizado para resolver referencias agrupando por tipo
+  private async resolveModuleItemReferencesOptimized(items: ModuleItem[], tenantId: string): Promise<ModuleItem[]> {
+    if (!items || items.length === 0) {
+      return items;
+    }
+
+    // Agrupar items por tipo y recopilar IDs
+    const itemsByType = items.reduce((acc, item) => {
+      if (!acc[item.type]) {
+        acc[item.type] = [];
+      }
+      acc[item.type].push(item);
+      return acc;
+    }, {} as Record<ModuleItemType, ModuleItem[]>);
+
+    // Crear un mapa para almacenar las entidades encontradas
+    const entitiesMap = new Map<string, any>();
+
+    // Realizar consultas agrupadas por tipo
+    const queries = Object.entries(itemsByType).map(async ([type, typeItems]) => {
+      const referenceIds = typeItems.map(item => item.referenceId);
+      
+      try {
+        let entities: any[] = [];
+        
+        switch (type as ModuleItemType) {
+          case ModuleItemType.CONTENT:
+            entities = await this.contentRepository.find({
+              where: { 
+                id: In(referenceIds),
+                tenantId 
+              }, select: ['id', 'title', 'description', 'contentType'] // Seleccionar solo campos necesarios
+            });
+            break;
+            
+          case ModuleItemType.FORUM:
+            entities = await this.forumRepository.find({
+              where: { 
+                id: In(referenceIds),
+                tenantId 
+              }, select: ['id', 'title', 'description']
+            });
+            break;
+            
+          case ModuleItemType.TASK:
+            entities = await this.taskRepository.find({
+              where: { 
+                id: In(referenceIds),
+                tenantId 
+              }, select: ['id', 'title', 'description'],
+              relations: ['configuration']
+            });
+            break;
+            
+          case ModuleItemType.QUIZ:
+            entities = await this.quizRepository.find({
+              where: { 
+                id: In(referenceIds),
+                tenantId 
+              }, select: ['id', 'title', 'description']
+            });
+            break;
+            
+          case ModuleItemType.SURVEY:
+            entities = await this.surveyRepository.find({
+              where: { 
+                id: In(referenceIds),
+                tenantId 
+              }, select: ['id', 'title', 'description']
+            });
+            break;
+            
+          case ModuleItemType.ACTIVITY:
+            // Si tienes una entidad Activity, agrégala aquí
+            console.warn(`Tipo ACTIVITY no implementado aún`);
+            break;
+            
+          default:
+            console.warn(`Tipo de ModuleItem no reconocido: ${type}`);
+        }
+
+        // Agregar entidades al mapa
+        entities.forEach(entity => {
+          entitiesMap.set(entity.id, entity);
+        });
+        
+      } catch (error) {
+        console.error(`Error al resolver referencias para tipo ${type}:`, error);
+      }
+    });
+
+    // Ejecutar todas las consultas en paralelo
+    await Promise.all(queries);
+
+    // Asignar las entidades resueltas a cada item
+    const resolvedItems = items.map(item => ({
+      ...item,
+      referencedEntity: entitiesMap.get(item.referenceId) || null
+    })) as (ModuleItem & { referencedEntity: any })[];
+
+    return resolvedItems;
+  }
+
+  async findCourseForMake(id: string, tenant: string, userId: string): Promise<Courses> {
+    try {
+      const tenantId = await this.tenantsService.getTenantIdByDomain(tenant);
+      if (!tenantId) {
+        throw new BadRequestException('Tenant not found for the provided domain');
+      }
+
+      const course = await this.courseRepository.findOne({
+        where: { id, tenantId },
+        relations: [
+          'translations', 
+          'sections', 
+          'modules', 
+          'modules.configuration',
+          'modules.items', 
+          'configuration', 
+          'viewsConfig', 
+          'userConnections', 
+          'userConnections.user'
+        ],
+      });
+
+      if (!course) {
+        throw new NotFoundException(`Curso con ID ${id} no encontrado`);
+      }
+
+      // Verificar si el usuario está inscrito
+      const userEnrollment = course.userConnections?.find(uc => uc.user.id === userId);
+      const isEnrolled = !!userEnrollment;
+
+      // Obtener progreso del usuario si está inscrito
+      let userCourseProgress: UserCourseProgress | null = null;
+      let userModuleProgressMap = new Map();
+      let userItemProgressMap = new Map();
+
+      if (isEnrolled) {
+        // Obtener progreso general del curso
+        userCourseProgress = await this.userCourseProgressRepository.findOne({
+          where: { userId, courseId: id }
+        });
+
+        // Obtener progreso de módulos
+        const moduleIds = course.modules?.map(m => m.id) || [];
+        if (moduleIds.length > 0) {
+          const moduleProgressList = await this.userModuleProgressRepository.find({
+            where: { 
+              userId, 
+              moduleId: In(moduleIds) 
+            }
+          });
+          
+          moduleProgressList.forEach(mp => {
+            userModuleProgressMap.set(mp.moduleId, mp);
+          });
+        }
+
+        // Obtener progreso de items
+        const allItemIds: string[] = [];
+        course.modules?.forEach(module => {
+          module.items?.forEach(item => {
+            allItemIds.push(item.id);
+          });
+        });
+
+        if (allItemIds.length > 0) {
+          const itemProgressList = await this.userItemProgressRepository.find({
+            where: { 
+              userId, 
+              itemId: In(allItemIds) 
+            }
+          });
+          
+          itemProgressList.forEach(ip => {
+            userItemProgressMap.set(ip.itemId, ip);
+          });
+        }
+      }
+
+      // Recopilar todos los items de todos los módulos
+      const allItems: ModuleItem[] = [];
+      const itemToModuleMap = new Map<string, any>();
+
+      if (course.modules && course.modules.length > 0) {
+        course.modules.forEach(module => {
+          if (module.items && module.items.length > 0) {
+            module.items.forEach(item => {
+              allItems.push(item);
+              itemToModuleMap.set(item.id, module);
+            });
+          }
+        });
+      }
+
+      // Resolver todas las referencias de una vez
+      if (allItems.length > 0) {
+        const resolvedItems = await this.resolveModuleItemReferencesOptimized(allItems, tenantId);
+        
+        // Crear un mapa con los items resueltos usando su ID
+        const resolvedItemsMap = new Map(resolvedItems.map(item => [item.id, item]));
+        
+        // Ordenar módulos por configuración de orden
+        const sortedModules = [...course.modules].sort((a, b) => {
+          const orderA = a.configuration?.order || 0;
+          const orderB = b.configuration?.order || 0;
+          return orderA - orderB;
+        });
+        
+        // Encontrar el item activo (primer item no completado)
+        let activeItemId: string | null = null;
+        if (isEnrolled) {
+          for (const module of sortedModules) {
+            if (module.items && module.items.length > 0) {
+              const sortedItems = [...module.items].sort((a, b) => (a.order || 0) - (b.order || 0));
+              for (const item of sortedItems) {
+                const itemProgress = userItemProgressMap.get(item.id);
+                if (!itemProgress?.isCompleted()) {
+                  activeItemId = item.id;
+                  break;
+                }
+              }
+              if (activeItemId) break;
+            }
+          }
+        }
+
+        course.modules = sortedModules.map(module => {
+          if (module.items && module.items.length > 0) {
+            // Ordenar items por orden
+            const sortedItems = [...module.items].sort((a, b) => (a.order || 0) - (b.order || 0));
+            
+            // Crear los items con la estructura personalizada
+            const transformedItems = sortedItems.map((item, index) => {
+              const resolvedItem = resolvedItemsMap.get(item.id) as (ModuleItem & { referencedEntity: any }) | undefined; // El ModuleItem con referencedEntity
+              const referencedEntity = resolvedItem?.referencedEntity; // La entidad real (ContentItem, Forum, Quiz, etc.)
+              const itemProgress = userItemProgressMap.get(item.id);
+              
+              // Determinar si el item está bloqueado
+              let isLocked = false;
+              if (isEnrolled) {
+                // Si no es el primer item, verificar items anteriores
+                if (index > 0) {
+                  const previousItems = sortedItems.slice(0, index);
+                  isLocked = previousItems.some(prevItem => {
+                    const prevProgress = userItemProgressMap.get(prevItem.id);
+                    return !prevProgress?.isCompleted();
+                  });
+                }
+                
+                // También verificar si módulos anteriores están completados según approvalPercentage
+                const moduleConfig = module.configuration;
+                if (moduleConfig && index === 0) {
+                  const currentModuleIndex = sortedModules.findIndex(m => m.id === module.id);
+                  if (currentModuleIndex > 0) {
+                    const previousModules = sortedModules.slice(0, currentModuleIndex);
+                    isLocked = previousModules.some(prevModule => {
+                      const moduleProgress = userModuleProgressMap.get(prevModule.id);
+                      const approvalPercentage = prevModule.configuration?.approvalPercentage || 80;
+                      return !moduleProgress || (moduleProgress.progressPercentage || 0) < approvalPercentage;
+                    });
+                  }
+                }
+              }
+              
+              // Los datos reales vienen de la entidad referenciada
+              const itemData = {
+                id: item.id, // ID del ModuleItem
+                type: item.type, // Tipo del ModuleItem (content, quiz, task, etc.)
+                referenceId: item.referenceId, // ID de la entidad real
+                order: item.order || index + 1, // Orden del ModuleItem
+                // Datos que vienen de la entidad referenciada
+                title: referencedEntity?.title || 'Sin título',
+                description: referencedEntity?.description || null,
+                duration: this.calculateItemDuration(item),
+                thumbnailImagePath: referencedEntity?.thumbnailImagePath || null,
+                // Estados de progreso
+                isCompleted: isEnrolled ? (itemProgress?.isCompleted() || false) : false,
+                isLocked: isEnrolled ? isLocked : true,
+                ...(activeItemId === item.id && { isActive: true }),
+                // Datos específicos según el tipo
+                ...(item.type === 'content' && referencedEntity && {
+                  contentType: referencedEntity.contentType,
+                  contentUrl: referencedEntity.contentUrl
+                }),
+                ...(item.type === 'forum' && referencedEntity && {
+                  discution: referencedEntity.discution,
+                  startDate: referencedEntity.startDate,
+                  endDate: referencedEntity.endDate
+                }),
+                ...(item.type === 'task' && referencedEntity && {
+                  startDate: referencedEntity.startDate,
+                  endDate: referencedEntity.endDate,
+                  configuration: referencedEntity.configuration
+                })
+              };
+              
+              return itemData;
+            });
+            
+            // Asignar los items transformados usando any para evitar problemas de tipo
+            (module as any).items = transformedItems;
+            
+            // Agregar estadísticas del módulo usando el helper
+            this.addModuleStats(module, userItemProgressMap, isEnrolled);
+          } else {
+            // Si no hay items, agregar stats usando el helper
+            this.addModuleStats(module, userItemProgressMap, isEnrolled);
+          }
+          
+          return module;
+        });
+      }
+
+      // Agregar información de inscripción al curso
+      let completedModules = 0;
+      const totalModules = course.modules?.length || 0;
+
+      if (isEnrolled && course.modules) {
+        course.modules.forEach(module => {
+          const moduleProgress = userModuleProgressMap.get(module.id);
+          if (moduleProgress?.isCompleted()) {
+            completedModules++;
+          }
+        });
+      }
+
+      (course as any).enrollmentInfo = {
+        isEnrolled,
+        enrollmentDate: userEnrollment?.created_at || null,
+        progress: userCourseProgress?.progressPercentage || 0,
+        completedModules,
+        totalModules
+      };
+
+      return course;
+      
+    } catch (error) {
+      console.error('Error al encontrar curso para hacer:', error);
+      
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      throw new NotFoundException(`Curso con ID ${id} no encontrado`);
+    }
+  }
+
   /**
    * Encuentra todos los cursos
    */
@@ -175,5 +629,253 @@ async create(createCourseDto: CreateCourseDto): Promise<Courses> {
   async hardDelete(id: string): Promise<void> {
     await this.findOne(id);
     await this.courseRepository.delete(id);
+  }
+
+  /**
+   * Genera un slug único para el curso
+   */
+  private async generateUniqueSlug(createCourseDto: CreateCourseDto, tenantId: string): Promise<string> {
+    // Obtener el título base para el slug
+    const baseTitle = this.getBaseTitleForSlug(createCourseDto);
+    
+    // Generar slug base
+    const baseSlug = this.createSlugFromTitle(baseTitle);
+    
+    // Verificar unicidad y obtener slug final
+    const uniqueSlug = await this.ensureSlugUniqueness(baseSlug, tenantId);
+    
+    return uniqueSlug;
+  }
+
+  /**
+   * Obtiene el título base para generar el slug
+   * Prioriza: título principal > título en español de traducciones > primer título disponible
+   */
+  private getBaseTitleForSlug(createCourseDto: CreateCourseDto): string {
+    // 1. Usar título principal si existe
+    if (createCourseDto.title?.trim()) {
+      return createCourseDto.title.trim();
+    }
+    
+    // 2. Buscar en traducciones - priorizar español
+    if (createCourseDto.translations) {
+      // Buscar traducción en español
+      const esTranslationGroup = createCourseDto.translations['es'];
+      if (esTranslationGroup?.es?.title?.trim()) {
+        return esTranslationGroup.es.title.trim();
+      }
+
+      // Si no hay español, buscar en otras traducciones
+      for (const [langCode, translationGroup] of Object.entries(createCourseDto.translations)) {
+        // Revisar cada idioma dentro del grupo
+        for (const [subLang, translation] of Object.entries(translationGroup)) {
+          if (translation && typeof translation === 'object' && 'title' in translation) {
+            const title = (translation as CourseTranslationDto).title;
+            if (title?.trim()) {
+              return title.trim();
+            }
+          }
+        }
+      }
+    } // ← Esta llave cierra el if (createCourseDto.translations)
+    
+    // 3. Fallback - usar timestamp
+    return `curso-${Date.now()}`;
+  }
+
+  /**
+   * Convierte un título en un slug válido
+   */
+  private createSlugFromTitle(title: string): string {
+    return title
+      .toLowerCase()
+      .trim()
+      // Reemplazar caracteres especiales y acentos
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remover diacríticos
+      // Reemplazar espacios y caracteres no alfanuméricos con guiones
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/[\s_]+/g, '-') // Convertir espacios y guiones bajos a guiones
+      .replace(/-+/g, '-') // Reemplazar múltiples guiones con uno solo
+      .replace(/^-+|-+$/g, '') // Remover guiones al inicio y final
+      // Limitar longitud
+      .substring(0, 100);
+  }
+
+  /**
+   * Asegura que el slug sea único agregando un sufijo numérico si es necesario
+   */
+  private async ensureSlugUniqueness(baseSlug: string, tenantId: string, excludeId?: string): Promise<string> {
+    let currentSlug = baseSlug;
+    let counter = 0;
+    let isUnique = false;
+    
+    while (!isUnique) {
+      // Construir el slug actual (con sufijo si es necesario)
+      const testSlug = counter === 0 ? currentSlug : `${baseSlug}-${counter}`;
+      
+      // Verificar si existe en la base de datos
+      const existingCourse = await this.courseRepository
+        .createQueryBuilder('course')
+        .where('course.slug = :slug', { slug: testSlug })
+        .andWhere('course.tenantId = :tenantId', { tenantId })
+        .andWhere('course.deleted_at IS NULL') // Excluir cursos eliminados
+        .getOne();
+      
+      if (!existingCourse || (excludeId && existingCourse.id === excludeId)) {
+        currentSlug = testSlug;
+        isUnique = true;
+      } else {
+        counter++;
+        // Prevenir bucle infinito
+        if (counter > 9999) {
+          currentSlug = `${baseSlug}-${Date.now()}`;
+          isUnique = true;
+        }
+      }
+    }
+    
+    return currentSlug;
+  }
+
+  /**
+   * Valida que un slug tenga el formato correcto
+   */
+  private validateSlugFormat(slug: string): boolean {
+    // El slug debe tener entre 3 y 100 caracteres
+    if (slug.length < 3 || slug.length > 100) {
+      return false;
+    }
+    
+    // Solo debe contener letras minúsculas, números y guiones
+    const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+    return slugRegex.test(slug);
+  }
+
+  /**
+   * Método público para generar slug desde título (útil para APIs)
+   */
+  async generateSlugFromTitle(title: string, tenantId: string): Promise<string> {
+    const baseSlug = this.createSlugFromTitle(title);
+    return await this.ensureSlugUniqueness(baseSlug, tenantId);
+  }
+
+  /**
+   * Método para regenerar slug de un curso existente
+   */
+  async regenerateSlug(courseId: string, newTitle?: string): Promise<string> {
+    const course = await this.courseRepository.findOne({
+      where: { id: courseId },
+      relations: ['translations']
+    });
+    
+    if (!course) {
+      throw new BadRequestException('Curso no encontrado');
+    }
+    
+    // Usar nuevo título o el título de la traducción principal
+    const titleToUse = newTitle || course.getTranslatedTitle('es') || course.slug;
+    const baseSlug = this.createSlugFromTitle(titleToUse);
+    const newSlug = await this.ensureSlugUniqueness(baseSlug, course.tenantId, courseId);
+    
+    // Actualizar el curso con el nuevo slug
+    await this.courseRepository.update(courseId, { slug: newSlug });
+    
+    return newSlug;
+  }
+
+
+
+
+  // Método helper para calcular la duración de un item según su tipo
+  private calculateItemDuration(item: any): number {
+    let duration = 0;
+    
+    switch (item.type) {
+      case ModuleItemType.CONTENT:
+        // Para contenido, buscar en el contenido resuelto
+        if (item.resolvedContent) {
+          if (item.resolvedContent.videoDuration) {
+            duration = item.resolvedContent.videoDuration;
+          } else if (item.resolvedContent.estimatedReadingTime) {
+            duration = item.resolvedContent.estimatedReadingTime * 60; // convertir minutos a segundos
+          } else if (item.resolvedContent.content) {
+            // Calcular tiempo de lectura estimado basado en palabras
+            const words = item.resolvedContent.content.split(' ').length;
+            const wordsPerMinute = 200; // promedio de lectura
+            duration = Math.ceil(words / wordsPerMinute) * 60;
+          }
+        }
+        break;
+        
+      case ModuleItemType.QUIZ:
+        // Para quizzes, estimar tiempo basado en número de preguntas
+        if (item.resolvedContent?.questions) {
+          const questionsCount = item.resolvedContent.questions.length;
+          duration = questionsCount * 60; // 1 minuto por pregunta estimado
+        } else {
+          duration = 300; // 5 minutos por defecto para quizzes
+        }
+        break;
+        
+      case ModuleItemType.TASK:
+        // Para tareas, usar duración estimada o valor por defecto
+        duration = item.resolvedContent?.estimatedDuration || 1800; // 30 minutos por defecto
+        break;
+        
+      case ModuleItemType.SURVEY:
+        // Para encuestas, estimar basado en número de preguntas
+        if (item.resolvedContent?.questions) {
+          const questionsCount = item.resolvedContent.questions.length;
+          duration = questionsCount * 30; // 30 segundos por pregunta
+        } else {
+          duration = 300; // 5 minutos por defecto
+        }
+        break;
+        
+      case ModuleItemType.FORUM:
+        // Para foros, tiempo mínimo estimado
+        duration = 600; // 10 minutos por defecto
+        break;
+        
+      case ModuleItemType.ACTIVITY:
+        // Para actividades, usar duración específica o estimar
+        duration = item.resolvedContent?.estimatedDuration || 900; // 15 minutos por defecto
+        break;
+        
+      default:
+        duration = 300; // 5 minutos por defecto para tipos no reconocidos
+    }
+    
+    return duration;
+  }
+
+  // Método actualizado para usar el helper de duración
+  private addModuleStats(module: CourseModule, userItemProgressMap: Map<string, UserItemProgress>, isEnrolled: boolean): void {
+    const totalItems = module.items?.length || 0;
+    let completedItems = 0;
+    let totalDuration = 0;
+
+    if (module.items) {
+      module.items.forEach(item => {
+        // Calcular duración usando el helper
+        totalDuration += this.calculateItemDuration(item);
+        
+        // Verificar si está completado (solo si el usuario está inscrito)
+        if (isEnrolled) {
+          const itemProgress = userItemProgressMap.get(item.id);
+          if (itemProgress?.isCompleted()) {
+            completedItems++;
+          }
+        }
+      });
+    }
+
+    // Agregar stats al módulo
+    (module as any).stats = {
+      totalItems,
+      completedItems: isEnrolled ? completedItems : 0,
+      totalDuration
+    };
   }
 }

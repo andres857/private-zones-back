@@ -43,6 +43,15 @@ import { Task } from './courses/entities/courses-tasks.entity';
 import { TaskConfig } from './courses/entities/courses-tasks-config.entity';
 import { Quiz } from './courses/entities/courses-quizzes.entity';
 import { Survey } from './courses/entities/courses-surveys.entity';
+import { PermissionsModule } from './permissions/permissions.module';
+import { Permission } from './permissions/entities/permission.entity';
+import { UsersProgressModule } from './progress/user-progress.module';
+import { CoursesUsers } from './courses/entities/courses-users.entity';
+import { UserCourseProgress } from './progress/entities/user-course-progress.entity';
+import { UserModuleProgress } from './progress/entities/user-module-progress.entity';
+import { UserItemProgress } from './progress/entities/user-item-progress.entity';
+import { UserSession } from './progress/entities/user-session.entity';
+import { UserActivityLog } from './users/entities/user-activity-log.entity';
 
 
 @Module({
@@ -58,7 +67,7 @@ import { Survey } from './courses/entities/courses-surveys.entity';
       database: process.env.DATABASE_NAME || 'net_db',
       username: process.env.DATABASE_USER || 'postgres',
       password: process.env.DATABASE_PASSWORD || 'postgres',
-      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, TenantViewConfig, TenantComponentConfig, Subscription, UserConfig, UserProfileConfig, UserNotificationConfig, Section, Courses, CourseConfiguration, CourseTranslation, CoursesViewsConfig, CourseModule, CourseModuleConfig, ModuleItem, ContentItem, Forum, Task, TaskConfig, Quiz, Survey],
+      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, TenantViewConfig, TenantComponentConfig, Subscription, UserConfig, UserProfileConfig, UserNotificationConfig, Section, Courses, CourseConfiguration, CourseTranslation, CoursesViewsConfig, Permission, CourseModule, CourseModuleConfig, ModuleItem, ContentItem, Forum, Task, TaskConfig, Quiz, Survey, CoursesUsers, UserCourseProgress, UserModuleProgress, UserItemProgress, UserSession, UserActivityLog],
       synchronize: true,
     }),
     UsersModule,
@@ -69,7 +78,9 @@ import { Survey } from './courses/entities/courses-surveys.entity';
     AuthModule,
     CoursesModule,
     PrivateZonesModule,
-    SectionsModule
+    SectionsModule,
+    PermissionsModule,
+    UsersProgressModule
   ],
   controllers: [AppController],
   providers: [AppService, EventsGateway],

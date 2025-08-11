@@ -11,6 +11,7 @@ import { Tenant } from 'src/tenants/entities/tenant.entity';
 import { UserConfig } from './user-config.entity';
 import { UserProfileConfig } from './user-profile-config.entity';
 import { UserNotificationConfig } from './user-notification-config.entity';
+import { CoursesUsers } from 'src/courses/entities/courses-users.entity';
 
 @Entity('users')
 @Index(['email', 'tenantId'], { unique: true })
@@ -48,6 +49,9 @@ export class User {
   @Column({ nullable: true })
   @Exclude()
   passwordResetExpires?: Date;
+
+  @OneToMany(() => CoursesUsers, courseUser => courseUser.user)
+  courseConnections: CoursesUsers[];
 
   @OneToMany(() => RefreshToken, token => token.user, { cascade: true })
   refreshTokens: RefreshToken[];

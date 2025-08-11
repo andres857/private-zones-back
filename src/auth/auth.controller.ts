@@ -13,9 +13,17 @@ import { UserRole } from 'src/common/enums/user-role.enum';
 import { TenantValidationInterceptor } from './interceptors/tenant-validation.interceptor';
 import { User } from 'src/users/entities/user.entity';
 
+import { JwtDebugUtil } from './utils/jwt-debug.util';
+
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService, private readonly jwtDebugUtil: JwtDebugUtil,) {}
+
+  // @Post('debug-token')
+  // @Public() // Make this public for testing
+  // debugToken(@Body('token') token: string) {
+  //   return this.jwtDebugUtil.analyzeToken(token);
+  // }
 
   @Public()
   @Post('login')
