@@ -48,10 +48,10 @@ export class UserCourseProgress {
   scorePercentage: number; // 0-100
 
   @Column({ type: 'timestamp', nullable: true })
-  startedAt: Date;
+  started_at: Date;
 
   @Column({ type: 'timestamp', nullable: true })
-  completedAt: Date;
+  completed_at: Date;
 
   @Column({ type: 'timestamp', nullable: true })
   lastAccessedAt: Date;

@@ -37,7 +37,7 @@ import { CoursesViewsConfig } from './courses/entities/courses-view-config.entit
 import { CourseModule } from './courses/entities/courses-modules.entity';
 import { CourseModuleConfig } from './courses/entities/courses-modules-config.entity';
 import { ModuleItem } from './courses/entities/courses-modules-item.entity';
-import { ContentItem } from './courses/entities/courses-contents.entity';
+import { ContentItem } from './contents/entities/courses-contents.entity';
 import { Forum } from './courses/entities/courses-forums.entity';
 import { Task } from './courses/entities/courses-tasks.entity';
 import { TaskConfig } from './courses/entities/courses-tasks-config.entity';
@@ -52,13 +52,14 @@ import { UserModuleProgress } from './progress/entities/user-module-progress.ent
 import { UserItemProgress } from './progress/entities/user-item-progress.entity';
 import { UserSession } from './progress/entities/user-session.entity';
 import { UserActivityLog } from './users/entities/user-activity-log.entity';
+import { ContentsModule } from './contents/contents.module';
 
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      // envFilePath: ['.env'],
+      envFilePath: ['.env'],
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',
@@ -80,7 +81,8 @@ import { UserActivityLog } from './users/entities/user-activity-log.entity';
     PrivateZonesModule,
     SectionsModule,
     PermissionsModule,
-    UsersProgressModule
+    UsersProgressModule,
+    ContentsModule
   ],
   controllers: [AppController],
   providers: [AppService, EventsGateway],

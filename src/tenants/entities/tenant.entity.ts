@@ -14,7 +14,7 @@ import { Subscription } from './suscription-tenant.entity';
 import { TenantComponentConfig } from './tenant-component-config.entity';
 import { Courses } from 'src/courses/entities/courses.entity';
 import { Section } from 'src/sections/entities/sections.entity';
-import { ContentItem } from 'src/courses/entities/courses-contents.entity';
+import { ContentItem } from 'src/contents/entities/courses-contents.entity';
 import { Forum } from 'src/courses/entities/courses-forums.entity';
 import { Task } from 'src/courses/entities/courses-tasks.entity';
 import { Quiz } from 'src/courses/entities/courses-quizzes.entity';

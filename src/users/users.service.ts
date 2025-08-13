@@ -319,7 +319,7 @@ export class UsersService {
   async findOne(id: string): Promise<User> {
     const user = await this.usersRepository.findOne({ where: { id }, relations: ['roles', 'tenant', 'profileConfig', 'notificationConfig'] });
 
-    this.logger.warn(user);
+    // this.logger.warn(user);
     if (!user) {
       throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
     }

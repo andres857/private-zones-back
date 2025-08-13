@@ -22,12 +22,36 @@ import { JwtDebugUtil } from './utils/jwt-debug.util';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRATION', '15m'),
-        },
-      }),
+      useFactory: async (configService: ConfigService) => {
+        // ✅ FIXED: Get proper JWT configuration
+        const secret = configService.get<string>('JWT_SECRET');
+        const expiresIn = configService.get<string>('JWT_EXPIRATION', '1h');
+        
+        // 🔍 Debug logging to track the issue
+        // console.log('🔧 AuthModule JWT Configuration:', {
+        //   hasSecret: !!secret,
+        //   secretLength: secret?.length || 0,
+        //   expiresIn,
+        //   expiresInType: typeof expiresIn
+        // });
+        
+        // ✅ CRITICAL: Validate that JWT_SECRET exists
+        if (!secret) {
+          throw new Error('❌ JWT_SECRET is required but not found in environment variables');
+        }
+        
+        // ✅ CRITICAL: Validate secret length for security
+        if (secret.length < 32) {
+          throw new Error('❌ JWT_SECRET must be at least 32 characters long for security');
+        }
+        
+        return {
+          secret, // ✅ FIXED: No default value - must be provided in env
+          signOptions: {
+            expiresIn, // ✅ FIXED: Use string format (e.g., '1h', '3600s')
+          },
+        };
+      },
     }),
     TypeOrmModule.forFeature([User, RefreshToken]),
     UsersModule,

@@ -19,14 +19,21 @@ export class ContentItem {
   @Column()
   title: string;
 
-  @Column({ type: 'enum', enum: ['video', 'image', 'document', 'embed'] })
-  contentType: 'video' | 'image' | 'document' | 'embed';
+  @Column({ type: 'enum', enum: ['video', 'image', 'document', 'embed', 'scorm'] })
+  contentType: 'video' | 'image' | 'document' | 'embed' | 'scorm';
 
   @Column({ type: 'text' })
   contentUrl: string;
 
   @Column({ nullable: true })
   description: string;
+
+  // Metadatos adicionales
+  @Column({
+      type: 'jsonb',
+      default: {}
+  })
+  metadata: Record<string, any>;
 
   @CreateDateColumn()
   createdAt: Date;

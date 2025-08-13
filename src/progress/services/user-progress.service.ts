@@ -88,7 +88,7 @@ export class UserProgressService {
       status: CourseStatus.NOT_STARTED,
       totalModules,
       totalItems,
-      startedAt: new Date()
+      started_at: new Date()
     });
 
     await this.courseProgressRepo.save(courseProgress);
@@ -188,7 +188,7 @@ export class UserProgressService {
 
       // Actualizar item progress
       itemProgress.status = ItemStatus.COMPLETED;
-      itemProgress.completedAt = new Date();
+      itemProgress.completed_at = new Date();
       itemProgress.lastAccessedAt = new Date();
       
       if (completionData.score !== undefined) {
@@ -283,7 +283,7 @@ export class UserProgressService {
       status = ModuleStatus.IN_PROGRESS;
     } else if (completedItems === totalItems && totalItems > 0) {
       status = ModuleStatus.COMPLETED;
-      moduleProgress.completedAt = new Date();
+      moduleProgress.completed_at = new Date();
       
       // Registrar actividad de módulo completado
       await this.logActivity(userId, ActivityType.MODULE_COMPLETED, moduleId, 'module');
@@ -348,7 +348,7 @@ export class UserProgressService {
       status = CourseStatus.IN_PROGRESS;
     } else if (completedModules === totalModules && totalModules > 0) {
       status = CourseStatus.COMPLETED;
-      courseProgress.completedAt = new Date();
+      courseProgress.completed_at = new Date();
       
       // Registrar actividad de curso completado
       await this.logActivity(userId, ActivityType.COURSE_COMPLETED, courseId, 'course');
@@ -512,10 +512,10 @@ export class UserProgressService {
     // Si alcanza 100%, marcar como completado
     if (progressPercentage >= 100 && itemProgress.status !== ItemStatus.COMPLETED) {
       itemProgress.status = ItemStatus.COMPLETED;
-      itemProgress.completedAt = new Date();
+      itemProgress.completed_at = new Date();
     } else if (progressPercentage > 0 && itemProgress.status === ItemStatus.NOT_STARTED) {
       itemProgress.status = ItemStatus.IN_PROGRESS;
-      itemProgress.startedAt = new Date();
+      itemProgress.started_at = new Date();
     }
 
     await this.itemProgressRepo.save(itemProgress);
@@ -570,8 +570,8 @@ export class UserProgressService {
       status: cp.status,
       progressPercentage: cp.progressPercentage,
       scorePercentage: cp.scorePercentage,
-      startedAt: cp.startedAt,
-      completedAt: cp.completedAt,
+      started_at: cp.started_at,
+      completed_at: cp.completed_at,
       lastAccessedAt: cp.lastAccessedAt
     }));
 

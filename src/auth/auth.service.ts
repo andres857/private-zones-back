@@ -274,8 +274,29 @@ export class AuthService {
     }
   }
 
+  async debugJWTConfiguration() {
+    const jwtSecret = this.configService.get<string>('JWT_SECRET');
+    const jwtExpiration = this.configService.get<string>('JWT_EXPIRATION');
+    const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
+    const refreshExpiration = this.configService.get<string>('JWT_REFRESH_EXPIRATION');
+    
+    console.log('🔍 COMPLETE JWT DEBUG:', {
+      jwtSecret: jwtSecret ? `${jwtSecret.substring(0, 10)}...` : 'NOT_SET',
+      jwtSecretLength: jwtSecret?.length || 0,
+      jwtExpiration,
+      jwtExpirationType: typeof jwtExpiration,
+      refreshSecret: refreshSecret ? `${refreshSecret.substring(0, 10)}...` : 'NOT_SET',
+      refreshExpiration,
+      environmentVariables: {
+        JWT_SECRET: process.env.JWT_SECRET ? 'SET' : 'NOT_SET',
+        JWT_EXPIRATION: process.env.JWT_EXPIRATION || 'NOT_SET',
+        JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ? 'SET' : 'NOT_SET',
+        JWT_REFRESH_EXPIRATION: process.env.JWT_REFRESH_EXPIRATION || 'NOT_SET'
+      }
+    });
+  }
+
   private async generateTokens(user: User, req: Request): Promise<TokensResponseDto> {
-    // Extract role names from the Role objects
     const roleNames = user.roles.map(role => role.name);
     
     const payload = { 
@@ -284,28 +305,54 @@ export class AuthService {
       roles: roleNames
     };
     
-    // Valores de configuración con fallbacks
-    const jwtSecret = this.configService.get<string>('JWT_SECRET');
-    const jwtExpiration = this.configService.get<string>('JWT_EXPIRATION') || '1h';
+    // 🔍 Debug configuration first
+    // await this.debugJWTConfiguration();
+    
     const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
-    const refreshExpiration = this.configService.get<string>('JWT_REFRESH_EXPIRATION') || '7d';
+    const refreshExpiration = this.configService.get<string>('JWT_REFRESH_EXPIRATION', '7d');
     
-    console.log('JWT Configuration:', {
-      jwtExpiration,
-      refreshExpiration
-    });
+    if (!refreshSecret) {
+      throw new Error('JWT_REFRESH_SECRET not configured');
+    }
     
-    const accessToken = this.jwtService.sign(payload, {
-      secret: jwtSecret,
-      expiresIn: jwtExpiration,
-    });
+    // ✅ CRITICAL FIX: Use JwtService without overriding configuration
+    // This will use the configuration from AuthModule (secret + expiration)
+    console.log('🔧 Generating access token using AuthModule configuration...');
+    const accessToken = this.jwtService.sign(payload);
     
+    console.log('🔧 Generating refresh token with custom configuration...');
     const refreshToken = this.jwtService.sign(payload, {
       secret: refreshSecret,
       expiresIn: refreshExpiration,
     });
-  
-    // Store refresh token in database
+
+    // 🔍 Verify the generated access token
+    try {
+      const decoded = this.jwtService.verify(accessToken);
+      const now = Math.floor(Date.now() / 1000);
+      const duration = decoded.exp - decoded.iat;
+      
+      // console.log('✅ Access token verification:', {
+      //   iat: new Date(decoded.iat * 1000).toISOString(),
+      //   exp: new Date(decoded.exp * 1000).toISOString(),
+      //   duration: `${duration} seconds`,
+      //   durationInHours: `${(duration / 3600).toFixed(2)} hours`,
+      //   durationInMinutes: `${(duration / 60).toFixed(1)} minutes`,
+      //   isValid: decoded.exp > now,
+      //   timeUntilExpiry: `${decoded.exp - now} seconds`
+      // });
+      
+      // 🚨 Alert if duration is still wrong
+      if (duration < 60) {
+        console.error('🚨 WARNING: Token duration is less than 1 minute!');
+        console.error('🚨 This indicates AuthModule configuration is wrong');
+      }
+      
+    } catch (error) {
+      console.error('❌ Token verification failed:', error.message);
+      throw new Error('Failed to generate valid access token');
+    }
+
     await this.storeRefreshToken(refreshToken, user.id, req);
     
     return {

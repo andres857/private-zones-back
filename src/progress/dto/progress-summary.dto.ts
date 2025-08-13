@@ -41,10 +41,10 @@ export class CourseProgressDto {
   scorePercentage: number;
 
   @Expose()
-  startedAt: Date;
+  started_at: Date;
 
   @Expose()
-  completedAt?: Date;
+  completed_at?: Date;
 
   @Expose()
   lastAccessedAt?: Date;

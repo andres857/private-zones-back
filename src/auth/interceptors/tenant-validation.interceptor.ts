@@ -43,7 +43,9 @@ import { extractTenantDomainFromRequest } from 'src/utils/tenant.utils';
   
         // Agregar información del tenant al request para uso posterior
         request.tenant = tenant;
-        request.body.tenantId = tenant.id;
+        if (request.body && typeof request.body === 'object') {
+          request.body.tenantId = tenant.id;
+        }
         // request.body.tenantDomain = tenant.domain;
   
         return next.handle();

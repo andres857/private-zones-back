@@ -921,7 +921,7 @@ export class TenantsService {
       where: { domain: domain },
       relations: ['config', 'contactInfo', 'componentConfigs', 'viewConfigs']
     });
-    console.log('Found tenant:', tenant);
+    // console.log('Found tenant:', tenant);
     if (!tenant) {  
       console.log('No tenant found for domain:', domain);
       return null;

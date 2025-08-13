@@ -7,7 +7,7 @@ import { Courses } from './entities/courses.entity';
 import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
 import { TenantsModule } from 'src/tenants/tenants.module';
 import { CourseModule } from './entities/courses-modules.entity';
-import { ContentItem } from './entities/courses-contents.entity';
+import { ContentItem } from '../contents/entities/courses-contents.entity';
 import { Forum } from './entities/courses-forums.entity';
 import { Task } from './entities/courses-tasks.entity';
 import { Quiz } from './entities/courses-quizzes.entity';

@@ -8,14 +8,14 @@ import { TenantsService } from 'src/tenants/tenants.service';
 import { CourseTranslation } from './entities/courses-translations.entity';
 import { CourseTranslationDto } from './dto/course-translation.dto';
 import { ModuleItem, ModuleItemType } from './entities/courses-modules-item.entity';
-import { ContentItem } from './entities/courses-contents.entity';
+import { ContentItem } from '../contents/entities/courses-contents.entity';
 import { Forum } from './entities/courses-forums.entity';
 import { Task } from './entities/courses-tasks.entity';
 import { Quiz } from './entities/courses-quizzes.entity';
 import { Survey } from './entities/courses-surveys.entity';
-import { UserCourseProgress } from 'src/progress/entities/user-course-progress.entity';
+import { UserCourseProgress, CourseStatus } from 'src/progress/entities/user-course-progress.entity';
 import { UserModuleProgress } from 'src/progress/entities/user-module-progress.entity';
-import { UserItemProgress } from 'src/progress/entities/user-item-progress.entity';
+import { UserItemProgress, ItemStatus } from 'src/progress/entities/user-item-progress.entity';
 import { CourseModule } from './entities/courses-modules.entity';
 
 @Injectable()
@@ -290,7 +290,7 @@ export class CoursesService {
               where: { 
                 id: In(referenceIds),
                 tenantId 
-              }, select: ['id', 'title', 'description', 'contentType'] // Seleccionar solo campos necesarios
+              }, select: ['id', 'title', 'description', 'contentType', 'contentUrl', 'metadata'] // Seleccionar solo campos necesarios
             });
             break;
             
@@ -524,6 +524,10 @@ export class CoursesService {
                   }
                 }
               }
+
+              console.log('itemmmm:', referencedEntity);
+              console.log('itemmmm2:', item);
+
               
               // Los datos reales vienen de la entidad referenciada
               const itemData = {
@@ -534,7 +538,7 @@ export class CoursesService {
                 // Datos que vienen de la entidad referenciada
                 title: referencedEntity?.title || 'Sin título',
                 description: referencedEntity?.description || null,
-                duration: this.calculateItemDuration(item),
+                duration: this.calculateItemDuration(item, referencedEntity),
                 thumbnailImagePath: referencedEntity?.thumbnailImagePath || null,
                 // Estados de progreso
                 isCompleted: isEnrolled ? (itemProgress?.isCompleted() || false) : false,
@@ -788,22 +792,28 @@ export class CoursesService {
 
 
   // Método helper para calcular la duración de un item según su tipo
-  private calculateItemDuration(item: any): number {
+  private calculateItemDuration(item: any, referencedEntity: any): number {
     let duration = 0;
     
     switch (item.type) {
       case ModuleItemType.CONTENT:
-        // Para contenido, buscar en el contenido resuelto
-        if (item.resolvedContent) {
-          if (item.resolvedContent.videoDuration) {
-            duration = item.resolvedContent.videoDuration;
-          } else if (item.resolvedContent.estimatedReadingTime) {
-            duration = item.resolvedContent.estimatedReadingTime * 60; // convertir minutos a segundos
-          } else if (item.resolvedContent.content) {
-            // Calcular tiempo de lectura estimado basado en palabras
-            const words = item.resolvedContent.content.split(' ').length;
-            const wordsPerMinute = 200; // promedio de lectura
-            duration = Math.ceil(words / wordsPerMinute) * 60;
+        if (referencedEntity?.metadata?.duration) {
+          duration = referencedEntity.metadata.duration;
+        } else if (referencedEntity?.metadata?.videoDuration) {
+          duration = referencedEntity.metadata.videoDuration;
+        } else if (referencedEntity?.metadata?.estimatedReadingTime) {
+          duration = referencedEntity.metadata.estimatedReadingTime * 60; // convertir minutos a segundos
+        } else {
+          // Duración por defecto según tipo de contenido
+          switch (referencedEntity?.contentType) {
+            case 'video':
+              duration = 600; // 10 minutos por defecto para videos
+              break;
+            case 'document':
+              duration = 300; // 5 minutos por defecto para documentos
+              break;
+            default:
+              duration = 180; // 3 minutos por defecto
           }
         }
         break;
@@ -847,7 +857,7 @@ export class CoursesService {
         duration = 300; // 5 minutos por defecto para tipos no reconocidos
     }
     
-    return duration;
+    return Math.round(duration / 60);
   }
 
   // Método actualizado para usar el helper de duración
@@ -859,7 +869,7 @@ export class CoursesService {
     if (module.items) {
       module.items.forEach(item => {
         // Calcular duración usando el helper
-        totalDuration += this.calculateItemDuration(item);
+        // totalDuration += this.calculateItemDuration(item);
         
         // Verificar si está completado (solo si el usuario está inscrito)
         if (isEnrolled) {
@@ -876,6 +886,119 @@ export class CoursesService {
       totalItems,
       completedItems: isEnrolled ? completedItems : 0,
       totalDuration
+    };
+  }
+
+
+  async getUserProgress(courseId: string, userId: string) {
+    // 1. Verificar que el curso existe
+    const course = await this.courseRepository.findOne({
+      where: { id: courseId },
+      relations: ['modules', 'modules.items']
+    });
+
+    if (!course) {
+      throw new NotFoundException('Course not found');
+    }
+
+    // 2. Obtener progreso general del curso
+    let courseProgress = await this.userCourseProgressRepository.findOne({
+      where: { courseId, userId }
+    });
+
+    // Si no existe progreso, crear uno nuevo
+    if (!courseProgress) {
+      courseProgress = this.userCourseProgressRepository.create({
+        courseId,
+        userId,
+        status: CourseStatus.NOT_STARTED,
+        progressPercentage: 0,
+        totalTimeSpent: 0,
+        totalModulesCompleted: 0,
+        totalModules: course.modules?.length || 0,
+        totalItemsCompleted: 0,
+        totalItems: course.getAllItems().length || 0,
+      });
+      await this.userCourseProgressRepository.save(courseProgress);
+    }
+
+    // 3. Obtener items completados
+    const completedItems = await this.userItemProgressRepository.find({
+      where: { 
+        userId,
+        status: ItemStatus.COMPLETED
+      },
+      relations: ['item', 'item.module'],
+      select: ['itemId', 'completed_at']
+    });
+
+    // Filtrar solo los items de este curso
+    const courseItemIds = course.getAllItems().map(item => item.id);
+    const completedCourseItems = completedItems
+      .filter(progress => courseItemIds.includes(progress.itemId))
+      .map(progress => progress.itemId);
+
+    // 4. Obtener el item actual (último accedido)
+    const lastAccessedItem = await this.userItemProgressRepository.findOne({
+      where: { userId },
+      relations: ['item', 'item.module'],
+      order: { lastAccessedAt: 'DESC' }
+    });
+
+    let currentItemId: string | null = null;
+    let currentModuleId: string | null = null;
+
+    if (lastAccessedItem && courseItemIds.includes(lastAccessedItem.itemId)) {
+      currentItemId = lastAccessedItem.itemId;
+      currentModuleId = lastAccessedItem.item.moduleId;
+    } else {
+      // Si no hay último acceso, usar el primer item del curso
+      const firstModule = course.modules?.[0];
+      if (firstModule?.items?.[0]) {
+        currentModuleId = firstModule.id;
+        currentItemId = firstModule.items[0].id;
+      }
+    }
+
+    // 5. Calcular tiempo total gastado en este curso
+    const allItemsProgress = await this.userItemProgressRepository.find({
+      where: { 
+        userId,
+        itemId: courseItemIds.length > 0 ? In(courseItemIds) : undefined
+      },
+      select: ['timeSpent']
+    });
+
+    const totalTimeSpent = allItemsProgress.reduce((total, item) => total + (item.timeSpent || 0), 0);
+
+    // 6. Calcular progreso general
+    const totalItems = course.getAllItems().length;
+    const overallProgress = totalItems > 0 ? Math.round((completedCourseItems.length / totalItems) * 100) : 0;
+
+    // 7. Actualizar progreso del curso
+    courseProgress.progressPercentage = overallProgress;
+    courseProgress.totalItemsCompleted = completedCourseItems.length;
+    courseProgress.totalTimeSpent = totalTimeSpent;
+    courseProgress.lastAccessedAt = new Date();
+    
+    if (overallProgress === 100 && courseProgress.status !== CourseStatus.COMPLETED) {
+      courseProgress.status = CourseStatus.COMPLETED;
+      courseProgress.completed_at = new Date();
+    } else if (overallProgress > 0 && courseProgress.status === CourseStatus.NOT_STARTED) {
+      courseProgress.status = CourseStatus.IN_PROGRESS;
+      courseProgress.started_at = new Date();
+    }
+
+    await this.userCourseProgressRepository.save(courseProgress);
+
+    // 8. Retornar formato requerido
+    return {
+      overallProgress,
+      completedItems: completedCourseItems,
+      lastAccessDate: courseProgress.lastAccessedAt?.toISOString() || new Date().toISOString(),
+      timeSpent: totalTimeSpent,
+      currentModuleId,
+      currentItemId
     };
   }
 }
