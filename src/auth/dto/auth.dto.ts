@@ -82,7 +82,8 @@ export class TokensResponseDto {
 }
   
 export class RefreshTokenDto {
-    refreshToken: string;
+  @IsString()
+  refreshToken: string;
 }
 
 export class LogoutDto {
