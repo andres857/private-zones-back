@@ -10,6 +10,7 @@ import { UserSession } from './entities/user-session.entity';
 import { Courses } from 'src/courses/entities/courses.entity';
 import { CourseModule } from 'src/courses/entities/courses-modules.entity';
 import { ModuleItem } from 'src/courses/entities/courses-modules-item.entity';
+import { ContentItem } from 'src/contents/entities/courses-contents.entity';
 
 @Module({
   imports: [
@@ -21,7 +22,8 @@ import { ModuleItem } from 'src/courses/entities/courses-modules-item.entity';
       UserSession,
       Courses,
       CourseModule,
-      ModuleItem
+      ModuleItem,
+      ContentItem
     ])
   ],
   controllers: [UserProgressController],

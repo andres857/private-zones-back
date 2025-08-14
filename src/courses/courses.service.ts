@@ -14,7 +14,7 @@ import { Task } from './entities/courses-tasks.entity';
 import { Quiz } from './entities/courses-quizzes.entity';
 import { Survey } from './entities/courses-surveys.entity';
 import { UserCourseProgress, CourseStatus } from 'src/progress/entities/user-course-progress.entity';
-import { UserModuleProgress } from 'src/progress/entities/user-module-progress.entity';
+import { UserModuleProgress, ModuleStatus } from 'src/progress/entities/user-module-progress.entity';
 import { UserItemProgress, ItemStatus } from 'src/progress/entities/user-item-progress.entity';
 import { CourseModule } from './entities/courses-modules.entity';
 
@@ -525,8 +525,8 @@ export class CoursesService {
                 }
               }
 
-              console.log('itemmmm:', referencedEntity);
-              console.log('itemmmm2:', item);
+              // console.log('itemmmm:', referencedEntity);
+              // console.log('itemmmm2:', item);
 
               
               // Los datos reales vienen de la entidad referenciada
@@ -950,6 +950,7 @@ export class CoursesService {
 
     if (lastAccessedItem && courseItemIds.includes(lastAccessedItem.itemId)) {
       currentItemId = lastAccessedItem.itemId;
+      console.log('LOGGGGGGG', lastAccessedItem);
       currentModuleId = lastAccessedItem.item.moduleId;
     } else {
       // Si no hay último acceso, usar el primer item del curso
@@ -957,6 +958,7 @@ export class CoursesService {
       if (firstModule?.items?.[0]) {
         currentModuleId = firstModule.id;
         currentItemId = firstModule.items[0].id;
+        console.log('LOGGGGGGG', firstModule);
       }
     }
 
@@ -991,6 +993,108 @@ export class CoursesService {
 
     await this.userCourseProgressRepository.save(courseProgress);
 
+    // 7.1. NUEVA LÓGICA: Actualizar progreso de módulos
+    const allItemsProgressWithDetails = await this.userItemProgressRepository.find({
+      where: { 
+        userId,
+        itemId: courseItemIds.length > 0 ? In(courseItemIds) : undefined
+      },
+      relations: ['item'],
+      select: ['itemId', 'timeSpent', 'status', 'lastAccessedAt']
+    });
+
+    let totalModulesCompleted = 0;
+
+    for (const module of course.modules || []) {
+      // Obtener items del módulo actual
+      const moduleItemIds = module.items?.map(item => item.id) || [];
+      const moduleCompletedItems = completedCourseItems.filter(itemId => 
+        moduleItemIds.includes(itemId)
+      );
+      
+      // Calcular tiempo gastado en el módulo
+      const moduleItemsProgress = allItemsProgressWithDetails.filter(progress => 
+        moduleItemIds.includes(progress.itemId)
+      );
+      const moduleTimeSpent = moduleItemsProgress.reduce((total, item) => 
+        total + (item.timeSpent || 0), 0
+      );
+
+      // Calcular progreso del módulo
+      const totalModuleItems = moduleItemIds.length;
+      const moduleProgressPercentage = totalModuleItems > 0 
+        ? Math.round((moduleCompletedItems.length / totalModuleItems) * 100) 
+        : 0;
+
+      // Determinar estado del módulo
+      let moduleStatus = ModuleStatus.NOT_STARTED;
+      let completed_at: Date | null = null;
+
+      if (moduleProgressPercentage === 100) {
+        moduleStatus = ModuleStatus.COMPLETED;
+        totalModulesCompleted++;
+        // Solo buscar fecha de completado si tenemos items completados
+        if (moduleCompletedItems.length > 0) {
+          const moduleCompletedItemsWithDate = completedItems.filter(item => 
+            moduleItemIds.includes(item.itemId)
+          );
+          if (moduleCompletedItemsWithDate.length > 0) {
+            completed_at = new Date(Math.max(...moduleCompletedItemsWithDate.map(item => 
+              new Date(item.completed_at).getTime()
+            )));
+          }
+        }
+      } else if (moduleProgressPercentage > 0) {
+        moduleStatus = ModuleStatus.IN_PROGRESS;
+      }
+
+      // Buscar progreso existente del módulo
+      let moduleProgress = await this.userModuleProgressRepository.findOne({
+        where: { userId, moduleId: module.id }
+      });
+
+      if (!moduleProgress) {
+        // Crear nuevo progreso del módulo
+        moduleProgress = new UserModuleProgress();
+        moduleProgress.userId = userId;
+        moduleProgress.moduleId = module.id;
+        moduleProgress.status = moduleStatus;
+        moduleProgress.progressPercentage = Number(moduleProgressPercentage);
+        moduleProgress.itemsCompleted = moduleCompletedItems.length;
+        moduleProgress.totalItems = totalModuleItems;
+        moduleProgress.timeSpent = moduleTimeSpent;
+        moduleProgress.started_at = moduleStatus !== ModuleStatus.NOT_STARTED ? new Date() : null;
+        moduleProgress.completed_at = completed_at;
+        moduleProgress.lastAccessedAt = new Date();
+      } else {
+        // Actualizar progreso existente
+        moduleProgress.status = moduleStatus;
+        moduleProgress.progressPercentage = Number(moduleProgressPercentage);
+        moduleProgress.itemsCompleted = moduleCompletedItems.length;
+        moduleProgress.totalItems = totalModuleItems;
+        moduleProgress.timeSpent = moduleTimeSpent;
+        
+        // Solo actualizar started_at si no existe y el módulo está en progreso
+        if (!moduleProgress.started_at && moduleStatus !== ModuleStatus.NOT_STARTED) {
+          moduleProgress.started_at = new Date();
+        }
+        
+        // Actualizar completed_at si el módulo se completó
+        if (moduleStatus === ModuleStatus.COMPLETED && !moduleProgress.completed_at) {
+          moduleProgress.completed_at = completed_at || new Date();
+        }
+        
+        // Siempre actualizar lastAccessedAt
+        moduleProgress.lastAccessedAt = new Date();
+      }
+
+      await this.userModuleProgressRepository.save(moduleProgress);
+    }
+
+    // Actualizar el contador de módulos completados en el progreso del curso
+    courseProgress.totalModulesCompleted = totalModulesCompleted;
+    await this.userCourseProgressRepository.save(courseProgress);
+
     // 8. Retornar formato requerido
     return {
       overallProgress,
@@ -998,7 +1102,8 @@ export class CoursesService {
       lastAccessDate: courseProgress.lastAccessedAt?.toISOString() || new Date().toISOString(),
       timeSpent: totalTimeSpent,
       currentModuleId,
-      currentItemId
+      currentItemId,
+      nextRecommendedItem: currentItemId
     };
   }
 }

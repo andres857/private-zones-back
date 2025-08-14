@@ -47,10 +47,10 @@ export class UserModuleProgress {
   scorePercentage: number; // 0-100
 
   @Column({ type: 'timestamp', nullable: true })
-  started_at: Date;
+  started_at: Date | null;
 
   @Column({ type: 'timestamp', nullable: true })
-  completed_at: Date;
+  completed_at: Date | null;
 
   @Column({ type: 'timestamp', nullable: true })
   lastAccessedAt: Date;

@@ -9,7 +9,8 @@ import { UserActivityLog, ActivityType } from '../../users/entities/user-activit
 import { UserSession } from '../entities/user-session.entity';
 import { Courses } from 'src/courses/entities/courses.entity';
 import { CourseModule } from 'src/courses/entities/courses-modules.entity';
-import { ModuleItem } from 'src/courses/entities/courses-modules-item.entity';
+import { ModuleItem, ModuleItemType } from 'src/courses/entities/courses-modules-item.entity';
+import { ContentItem } from 'src/contents/entities/courses-contents.entity';
 
 export interface ProgressSummary {
   courseProgress: UserCourseProgress;
@@ -51,6 +52,8 @@ export class UserProgressService {
     private moduleRepo: Repository<CourseModule>,
     @InjectRepository(ModuleItem)
     private itemRepo: Repository<ModuleItem>,
+    @InjectRepository(ContentItem)
+    private contentItemRepo: Repository<ContentItem>,
     private dataSource: DataSource,
   ) {}
 
@@ -489,19 +492,32 @@ export class UserProgressService {
    * Actualiza el progreso parcial de un item
    */
   async updateItemProgress(
-    userId: string,
     itemId: string,
+    userId: string,
     progressPercentage: number,
     timeSpent?: number
   ): Promise<void> {
+
+    const contentItem = await this.itemRepo.findOne({where: {referenceId: itemId}});
+
+    // console.log('contentItem', contentItem);
+    // console.log('itemId', itemId);
+
+    if(!contentItem){
+      throw new NotFoundException('ups, parece que con se contro el contenido');
+    }
+
     const itemProgress = await this.itemProgressRepo.findOne({
-      where: { userId, itemId }
+      where: { userId: userId, itemId: contentItem.id }
     });
+
+    // console.log('itemProgress', itemProgress)
 
     if (!itemProgress) {
       throw new NotFoundException('Item progress not found');
     }
 
+    // console.log('PROGRESO: ', progressPercentage);
     itemProgress.progressPercentage = progressPercentage;
     itemProgress.lastAccessedAt = new Date();
     
@@ -510,8 +526,9 @@ export class UserProgressService {
     }
 
     // Si alcanza 100%, marcar como completado
-    if (progressPercentage >= 100 && itemProgress.status !== ItemStatus.COMPLETED) {
+    if (progressPercentage >= 97 && itemProgress.status !== ItemStatus.COMPLETED) {
       itemProgress.status = ItemStatus.COMPLETED;
+      itemProgress.attempts += 1;
       itemProgress.completed_at = new Date();
     } else if (progressPercentage > 0 && itemProgress.status === ItemStatus.NOT_STARTED) {
       itemProgress.status = ItemStatus.IN_PROGRESS;
@@ -875,4 +892,204 @@ export class UserProgressService {
       timeByModule
     };
   }
+
+  async startItemProgress(contentId: string, userId: string): Promise<UserItemProgress> {
+    // Encontrar el ModuleItem que referencia este contenido
+    const moduleItem = await this.itemRepo.findOne({
+      where: { referenceId: contentId, type: ModuleItemType.CONTENT },
+      relations: ['module', 'module.course']
+    });
+
+    if (!moduleItem) {
+      throw new Error('Module item not found for this content');
+    }
+
+    // Verificar si ya existe progreso
+    let itemProgress = await this.itemProgressRepo.findOne({
+      where: { userId, itemId: moduleItem.id }
+    });
+
+    if (!itemProgress) {
+      itemProgress = this.itemProgressRepo.create({
+        userId,
+        itemId: moduleItem.id,
+        status: ItemStatus.IN_PROGRESS,
+        started_at: new Date(),
+        lastAccessedAt: new Date()
+      });
+    } else {
+      itemProgress.lastAccessedAt = new Date();
+      if (itemProgress.status === ItemStatus.NOT_STARTED) {
+        itemProgress.status = ItemStatus.IN_PROGRESS;
+        itemProgress.started_at = new Date();
+      }
+    }
+
+    return await this.itemProgressRepo.save(itemProgress);
+  }
+
+  // async updateItemProgress(contentId: string, userId: string, progressData: {
+  //   progressPercentage?: number;
+  //   timeSpent?: number;
+  // }): Promise<UserItemProgress> {
+  //   const moduleItem = await this.moduleItemRepository.findOne({
+  //     where: { referenceId: contentId, type: 'content' }
+  //   });
+
+  //   if (!moduleItem) {
+  //     throw new Error('Module item not found for this content');
+  //   }
+
+  //   const itemProgress = await this.userItemProgressRepository.findOne({
+  //     where: { userId, itemId: moduleItem.id }
+  //   });
+
+  //   if (!itemProgress) {
+  //     throw new Error('Item progress not found');
+  //   }
+
+  //   if (progressData.progressPercentage !== undefined) {
+  //     itemProgress.progressPercentage = progressData.progressPercentage;
+  //   }
+    
+  //   if (progressData.timeSpent !== undefined) {
+  //     itemProgress.timeSpent += progressData.timeSpent;
+  //   }
+
+  //   itemProgress.lastAccessedAt = new Date();
+
+  //   return await this.userItemProgressRepository.save(itemProgress);
+  // }
+
+  // async completeItem(contentId: string, userId: string): Promise<UserItemProgress> {
+  //   const moduleItem = await this.moduleItemRepository.findOne({
+  //     where: { referenceId: contentId, type: 'content' },
+  //     relations: ['module', 'module.course']
+  //   });
+
+  //   if (!moduleItem) {
+  //     throw new Error('Module item not found for this content');
+  //   }
+
+  //   let itemProgress = await this.userItemProgressRepository.findOne({
+  //     where: { userId, itemId: moduleItem.id }
+  //   });
+
+  //   if (!itemProgress) {
+  //     itemProgress = this.userItemProgressRepository.create({
+  //       userId,
+  //       itemId: moduleItem.id,
+  //       status: ItemStatus.COMPLETED,
+  //       started_at: new Date(),
+  //       completed_at: new Date(),
+  //       progressPercentage: 100
+  //     });
+  //   } else {
+  //     itemProgress.status = ItemStatus.COMPLETED;
+  //     itemProgress.completed_at = new Date();
+  //     itemProgress.progressPercentage = 100;
+  //   }
+
+  //   await this.userItemProgressRepository.save(itemProgress);
+
+  //   // Actualizar progreso del módulo y curso
+  //   await this.updateModuleProgress(moduleItem.moduleId, userId);
+  //   await this.updateCourseProgress(moduleItem.module.course.id, userId);
+
+  //   return itemProgress;
+  // }
+
+  // private async updateModuleProgress(moduleId: string, userId: string): Promise<void> {
+  //   // Obtener todos los items del módulo
+  //   const moduleItems = await this.moduleItemRepository.find({
+  //     where: { moduleId }
+  //   });
+
+  //   // Obtener progreso de todos los items
+  //   const itemsProgress = await this.userItemProgressRepository.find({
+  //     where: { 
+  //       userId, 
+  //       itemId: moduleItems.map(item => item.id).includes
+  //     }
+  //   });
+
+  //   const completedItems = itemsProgress.filter(progress => progress.isCompleted()).length;
+  //   const totalItems = moduleItems.length;
+  //   const progressPercentage = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
+
+  //   let moduleProgress = await this.userModuleProgressRepository.findOne({
+  //     where: { userId, moduleId }
+  //   });
+
+  //   if (!moduleProgress) {
+  //     moduleProgress = this.userModuleProgressRepository.create({
+  //       userId,
+  //       moduleId,
+  //       status: progressPercentage === 100 ? ModuleStatus.COMPLETED : ModuleStatus.IN_PROGRESS,
+  //       progressPercentage,
+  //       itemsCompleted: completedItems,
+  //       totalItems
+  //     });
+  //   } else {
+  //     moduleProgress.progressPercentage = progressPercentage;
+  //     moduleProgress.itemsCompleted = completedItems;
+  //     moduleProgress.totalItems = totalItems;
+  //     moduleProgress.status = progressPercentage === 100 ? ModuleStatus.COMPLETED : ModuleStatus.IN_PROGRESS;
+      
+  //     if (progressPercentage === 100) {
+  //       moduleProgress.completed_at = new Date();
+  //     }
+  //   }
+
+  //   await this.userModuleProgressRepository.save(moduleProgress);
+  // }
+
+  // private async updateCourseProgress(courseId: string, userId: string): Promise<void> {
+  //   // Obtener todos los módulos del curso
+  //   const courseModules = await this.moduleItemRepository
+  //     .createQueryBuilder('item')
+  //     .innerJoin('item.module', 'module')
+  //     .where('module.courseId = :courseId', { courseId })
+  //     .select('module.id', 'moduleId')
+  //     .groupBy('module.id')
+  //     .getRawMany();
+
+  //   // Obtener progreso de todos los módulos
+  //   const modulesProgress = await this.userModuleProgressRepository.find({
+  //     where: { 
+  //       userId, 
+  //       moduleId: courseModules.map(m => m.moduleId).includes
+  //     }
+  //   });
+
+  //   const completedModules = modulesProgress.filter(progress => progress.isCompleted()).length;
+  //   const totalModules = courseModules.length;
+  //   const progressPercentage = totalModules > 0 ? (completedModules / totalModules) * 100 : 0;
+
+  //   let courseProgress = await this.userCourseProgressRepository.findOne({
+  //     where: { userId, courseId }
+  //   });
+
+  //   if (!courseProgress) {
+  //     courseProgress = this.userCourseProgressRepository.create({
+  //       userId,
+  //       courseId,
+  //       status: progressPercentage === 100 ? CourseStatus.COMPLETED : CourseStatus.IN_PROGRESS,
+  //       progressPercentage,
+  //       totalModulesCompleted: completedModules,
+  //       totalModules
+  //     });
+  //   } else {
+  //     courseProgress.progressPercentage = progressPercentage;
+  //     courseProgress.totalModulesCompleted = completedModules;
+  //     courseProgress.totalModules = totalModules;
+  //     courseProgress.status = progressPercentage === 100 ? CourseStatus.COMPLETED : CourseStatus.IN_PROGRESS;
+      
+  //     if (progressPercentage === 100) {
+  //       courseProgress.completed_at = new Date();
+  //     }
+  //   }
+
+  //   await this.userCourseProgressRepository.save(courseProgress);
+  // }
 }
