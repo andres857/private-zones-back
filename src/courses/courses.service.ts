@@ -388,6 +388,19 @@ export class CoursesService {
         throw new NotFoundException(`Curso con ID ${id} no encontrado`);
       }
 
+      // Filtrar módulos que tienen items y configuración activa
+      if (course?.modules) {
+        course.modules = course.modules.filter(module => {
+          // Verificar que tiene items
+          const hasItems = module.items && module.items.length > 0;
+          
+          // Verificar que tiene configuración y está activa
+          const hasActiveConfig = module.configuration && module.configuration.isActive;
+          
+          return hasItems && hasActiveConfig;
+        });
+      }
+
       // Verificar si el usuario está inscrito
       const userEnrollment = course.userConnections?.find(uc => uc.user.id === userId);
       const isEnrolled = !!userEnrollment;
@@ -444,7 +457,16 @@ export class CoursesService {
       const allItems: ModuleItem[] = [];
       const itemToModuleMap = new Map<string, any>();
 
-      if (course.modules && course.modules.length > 0) {
+      // Validar que tenemos módulos con items y configuración activa
+      const validModules = course.modules?.filter(module => 
+        module.items && 
+        module.items.length > 0 && 
+        module.configuration && 
+        module.configuration.isActive
+      ) || [];
+
+      if (validModules.length > 0) {
+        course.modules = validModules;
         course.modules.forEach(module => {
           if (module.items && module.items.length > 0) {
             module.items.forEach(item => {
@@ -894,7 +916,7 @@ export class CoursesService {
     // 1. Verificar que el curso existe
     const course = await this.courseRepository.findOne({
       where: { id: courseId },
-      relations: ['modules', 'modules.items']
+      relations: ['modules', 'modules.items', 'modules.configuration']
     });
 
     if (!course) {
@@ -947,10 +969,52 @@ export class CoursesService {
 
     let currentItemId: string | null = null;
     let currentModuleId: string | null = null;
+    let nextRecommendedItem: any = null;
+
+    // Filtrar módulos activos con items y ordenarlos
+    const activeModules = course.modules
+      ?.filter(module => 
+        module.items && 
+        module.items.length > 0 && 
+        module.configuration && 
+        module.configuration.isActive
+      )
+      .sort((a, b) => (a.configuration?.order || 0) - (b.configuration?.order || 0)) || [];
+
+    // Buscar el primer item no completado
+    outerLoop: for (const module of activeModules) {
+      const sortedItems = module.items
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+      
+      for (const item of sortedItems) {
+        if (!completedCourseItems.includes(item.id)) {
+          // Necesitamos resolver la referencia para obtener el título
+          let itemTitle = 'Sin título';
+          
+          try {
+            // Resolver la referencia del item para obtener el título
+            const resolvedItems = await this.resolveModuleItemReferencesOptimized([item], course.tenantId);
+            const resolvedItem = resolvedItems[0] as (ModuleItem & { referencedEntity: any }) | undefined;
+            itemTitle = resolvedItem?.referencedEntity?.title || 'Sin título';
+          } catch (error) {
+            console.warn('Error resolving item reference:', error);
+          }
+          
+          nextRecommendedItem = {
+            moduleId: module.id,
+            itemId: item.id,
+            type: item.type,
+            referenceId: item.referenceId,
+            title: itemTitle,
+            moduleTitle: module.title
+          };
+          break outerLoop;
+        }
+      }
+    }
 
     if (lastAccessedItem && courseItemIds.includes(lastAccessedItem.itemId)) {
       currentItemId = lastAccessedItem.itemId;
-      console.log('LOGGGGGGG', lastAccessedItem);
       currentModuleId = lastAccessedItem.item.moduleId;
     } else {
       // Si no hay último acceso, usar el primer item del curso
@@ -958,7 +1022,6 @@ export class CoursesService {
       if (firstModule?.items?.[0]) {
         currentModuleId = firstModule.id;
         currentItemId = firstModule.items[0].id;
-        console.log('LOGGGGGGG', firstModule);
       }
     }
 
@@ -1103,7 +1166,7 @@ export class CoursesService {
       timeSpent: totalTimeSpent,
       currentModuleId,
       currentItemId,
-      nextRecommendedItem: currentItemId
+      nextRecommendedItem
     };
   }
 }
