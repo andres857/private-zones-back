@@ -8,6 +8,7 @@ import { CourseModule } from '../courses/entities/courses-modules.entity';
 import { Courses } from '../courses/entities/courses.entity';
 import { UserItemProgress } from '../progress/entities/user-item-progress.entity';
 import { GetContentOptions } from './contents.controller';
+import { GetAllContentsOptions, PaginatedContentResponse } from './interfaces/contents.interface';
 
 @Injectable()
 export class ContentsService {
@@ -311,5 +312,77 @@ export class ContentsService {
     }
     
     return undefined;
+  }
+
+  async getAll(options: GetAllContentsOptions): Promise<PaginatedContentResponse> {
+    const { courseId, search, contentType, page = 1, limit = 12, tenantId } = options;
+
+    // 📌 1. Buscar el curso con sus módulos e items
+    const course = await this.coursesRepository.findOne({
+      where: { id: courseId, tenantId },
+      relations: ['modules', 'modules.items'],
+    }) as Courses;
+
+    if (!course) {
+      throw new Error('Course not found');
+    }
+
+    // 📌 2. Extraer los referenceId de los items tipo CONTENT
+    const contentIds = course.getAllItems()
+      .filter(item => item.type === 'content')
+      .map(item => item.referenceId);
+
+    if (!contentIds.length) {
+      return {
+        data: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false,
+        },
+      };
+    }
+
+    // 📌 3. Construir query base para contar total
+    const baseQuery = this.contentRepository
+      .createQueryBuilder('content')
+      .where('content.id IN (:...ids)', { ids: contentIds })
+      .andWhere('content.tenantId = :tenantId', { tenantId });
+
+    if (search) {
+      baseQuery.andWhere('LOWER(content.title) LIKE :search', { search: `%${search.toLowerCase()}%` });
+    }
+
+    if (contentType) {
+      baseQuery.andWhere('content.contentType = :contentType', { contentType });
+    }
+
+    // 📌 4. Obtener el total de registros
+    const total = await baseQuery.getCount();
+
+    // 📌 5. Aplicar paginación y obtener datos
+    const data = await baseQuery
+      .skip((page - 1) * limit)
+      .take(limit)
+      .orderBy('content.createdAt', 'DESC')
+      .getMany();
+
+    // 📌 6. Calcular información de paginación
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      },
+    };
   }
 }

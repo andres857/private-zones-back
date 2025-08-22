@@ -1,5 +1,5 @@
 // src/contents/contents.controller.ts
-import { Controller, Get, Param, Query, UseGuards, Req, UseInterceptors, Post, Body } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards, Req, UseInterceptors, Post, Body, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
 import { ContentsService } from './contents.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Request } from 'express';
@@ -21,6 +21,38 @@ export class ContentsController {
         private readonly contentsService: ContentsService,
         private readonly progressService: UserProgressService
     ) { }
+
+    @Get('course/:courseId')
+    async getAllByCourse(
+        @Req() request: AuthenticatedRequest,
+        @Param('courseId') courseId: string,
+        @Query('search') search?: string,
+        @Query('contentType') contentType?: string,
+        @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+        @Query('limit', new DefaultValuePipe(12), ParseIntPipe) limit?: number,
+    ) {
+        const userId = request.user?.['id'];
+        const tenantId = request.tenant?.id;
+
+        if (!userId) throw new Error('User not authenticated');
+        if (!tenantId) throw new Error('Tenant not validated');
+
+        // 📌 Validar que page y limit sean valores válidos
+        const validPage = Math.max(1, page || 1);
+        const validLimit = Math.min(Math.max(1, limit || 12), 100); // máximo 100 por página
+
+        return this.contentsService.getAll({
+        courseId,
+        search,
+        contentType,
+        page: validPage,
+        limit: validLimit,
+        userId,
+        tenantId,
+        });
+    }
+
+
 
     @Get(':contentId')
     async getById(

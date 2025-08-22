@@ -72,7 +72,7 @@ export class Courses {
 
   @OneToMany(() => CourseTranslation, translation => translation.course, { 
     cascade: true, 
-    eager: false 
+    eager: true 
   })
   translations: CourseTranslation[];
 
