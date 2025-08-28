@@ -53,6 +53,7 @@ import { UserItemProgress } from './progress/entities/user-item-progress.entity'
 import { UserSession } from './progress/entities/user-session.entity';
 import { UserActivityLog } from './users/entities/user-activity-log.entity';
 import { ContentsModule } from './contents/contents.module';
+import { ModulesModule } from './modules/modules.module';
 
 
 @Module({
@@ -82,7 +83,8 @@ import { ContentsModule } from './contents/contents.module';
     SectionsModule,
     PermissionsModule,
     UsersProgressModule,
-    ContentsModule
+    ContentsModule,
+    ModulesModule
   ],
   controllers: [AppController],
   providers: [AppService, EventsGateway],

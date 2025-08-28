@@ -1,5 +1,5 @@
 // src/contents/contents.service.ts
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ContentItem } from './entities/courses-contents.entity';
@@ -9,6 +9,8 @@ import { Courses } from '../courses/entities/courses.entity';
 import { UserItemProgress } from '../progress/entities/user-item-progress.entity';
 import { GetContentOptions } from './contents.controller';
 import { GetAllContentsOptions, PaginatedContentResponse } from './interfaces/contents.interface';
+import { CreateContentDto } from './dto/contents.dto';
+import { ContentType } from 'src/common/enums/contents.enum';
 
 @Injectable()
 export class ContentsService {
@@ -384,5 +386,62 @@ export class ContentsService {
         hasPrev: page > 1,
       },
     };
+  }
+
+  private isValidContentType(type: string): type is ContentType {
+    return Object.values(ContentType).includes(type as ContentType);
+  }
+
+  async createContent(createContentDto: CreateContentDto): Promise<ContentItem> {
+    try {
+      // Validar que el contentType sea requerido
+      if (!createContentDto.type) {
+        throw new BadRequestException('El tipo de contenido es requerido');
+      }
+
+      // Validar que el contentType sea un valor válido
+      if (!this.isValidContentType(createContentDto.type)) {
+        throw new BadRequestException(
+          `Tipo de contenido inválido. Debe ser uno de: ${Object.values(ContentType).join(', ')}`
+        );
+      }
+
+      // Validar otros campos requeridos
+      if (!createContentDto.title?.trim()) {
+        throw new BadRequestException('El título es requerido');
+      }
+
+      if (!createContentDto.contentUrl?.trim()) {
+        throw new BadRequestException('La URL del contenido es requerida');
+      }
+
+      if (!createContentDto.tenantId) {
+        throw new BadRequestException('El tenantId es requerido');
+      }
+
+      // Crear el contenido
+      const content = new ContentItem();
+      content.title = createContentDto.title.trim();
+      content.description = createContentDto.description?.trim() ?? '';
+      content.contentType = createContentDto.type;
+      content.contentUrl = createContentDto.contentUrl.trim();
+      content.tenantId = createContentDto.tenantId;
+      content.metadata = createContentDto.metadata ?? {};
+
+      // Guardar en la base de datos
+      const savedContent = await this.contentRepository.save(content);
+      
+      return savedContent;
+
+    } catch (error) {
+      // Re-lanzar errores de validación
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      // Log del error para debugging
+      console.error('Error creando contenido:', error);
+      throw new InternalServerErrorException('Error interno creando el contenido');
+    }
   }
 }

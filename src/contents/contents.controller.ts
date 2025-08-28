@@ -119,4 +119,28 @@ export class ContentsController {
 
         return await this.progressService.completeItem(contentId, userId);
     }
+
+    @Post('/create')
+    async createContents(@Req() request: AuthenticatedRequest, @Body() body: any){
+        try {
+            const savedContent = await this.contentsService.createContent(body);
+            
+            // Retornar respuesta exitosa con el contenido creado
+            return {
+                success: true,
+                message: 'Contenido creado exitosamente',
+                data: {
+                    id: savedContent.id,
+                    title: savedContent.title,
+                    contentType: savedContent.contentType,
+                    contentUrl: savedContent.contentUrl,
+                    description: savedContent.description,
+                    createdAt: savedContent.createdAt
+                }
+            };
+        } catch (error) {
+            // Los errores ya son manejados en el service, simplemente los re-lanzamos
+            throw error;
+        }
+    }
 }
