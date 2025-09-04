@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, Length } from "class-validator";
+import { IsNotEmpty, IsNumber, IsOptional, IsString, Length } from "class-validator";
 
 export class CreateModuleDto {
     @IsNotEmpty({ message: 'El nombre del curso es requerido' })
@@ -20,9 +20,16 @@ export class CreateModuleDto {
     order?: number;
 
     @IsOptional()
+    configuration?: Record<string, any>;
+
+    @IsOptional()
+    items?: Record<string, any>[];
+
+    @IsOptional()
     metadata?: Record<string, any>;
 
-    @IsNotEmpty({ message: 'El porcentaje de aprobación es requerido' })
+    @IsOptional()
+    @IsNumber({}, { message: 'El porcentaje de aprobación debe ser un número' })
     approvalPercentage: number;
 
     @IsNotEmpty({ message: 'El tenantId es requerido' })

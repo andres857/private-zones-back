@@ -14,7 +14,7 @@ export class ModulesService {
     constructor(
         @InjectRepository(Courses)
         private coursesRepository: Repository<Courses>,
-        
+
         @InjectRepository(CourseModule)
         private courseModuleRepository: Repository<CourseModule>,
     ) {}
