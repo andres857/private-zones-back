@@ -12,6 +12,10 @@ import { UserConfig } from './user-config.entity';
 import { UserProfileConfig } from './user-profile-config.entity';
 import { UserNotificationConfig } from './user-notification-config.entity';
 import { CoursesUsers } from 'src/courses/entities/courses-users.entity';
+import { Forum } from 'src/forums/entities/forum.entity';
+import { ForumComment } from 'src/forums/entities/forum-comment.entity';
+import { ForumReaction } from 'src/forums/entities/forum-reaction.entity';
+import { CommentReaction } from 'src/forums/entities/comment-reaction.entity';
 
 @Entity('users')
 @Index(['email', 'tenantId'], { unique: true })
@@ -69,6 +73,18 @@ export class User {
 
   @OneToOne(() => UserNotificationConfig, config => config.user, { cascade: true })
   notificationConfig: UserNotificationConfig;
+
+  @OneToMany(() => Forum, (forum) => forum.author)
+  forums: Forum[];
+
+  @OneToMany(() => ForumComment, (comment) => comment.author)
+  comments: ForumComment[];
+
+  @OneToMany(() => ForumReaction, (reaction) => reaction.user)
+  forumReactions: ForumReaction[];
+
+  @OneToMany(() => CommentReaction, (reaction) => reaction.user)
+  commentReactions: CommentReaction[];
 
   @CreateDateColumn()
   createdAt: Date;

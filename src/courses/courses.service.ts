@@ -9,7 +9,7 @@ import { CourseTranslation } from './entities/courses-translations.entity';
 import { CourseTranslationDto } from './dto/course-translation.dto';
 import { ModuleItem, ModuleItemType } from './entities/courses-modules-item.entity';
 import { ContentItem } from '../contents/entities/courses-contents.entity';
-import { Forum } from './entities/courses-forums.entity';
+import { Forum } from '../forums/entities/forum.entity';
 import { Task } from './entities/courses-tasks.entity';
 import { Quiz } from './entities/courses-quizzes.entity';
 import { Survey } from './entities/courses-surveys.entity';

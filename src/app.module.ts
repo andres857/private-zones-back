@@ -38,7 +38,10 @@ import { CourseModule } from './courses/entities/courses-modules.entity';
 import { CourseModuleConfig } from './courses/entities/courses-modules-config.entity';
 import { ModuleItem } from './courses/entities/courses-modules-item.entity';
 import { ContentItem } from './contents/entities/courses-contents.entity';
-import { Forum } from './courses/entities/courses-forums.entity';
+import { Forum } from './forums/entities/forum.entity';
+import { ForumComment } from './forums/entities/forum-comment.entity';
+import { ForumReaction } from './forums/entities/forum-reaction.entity';
+import { CommentReaction } from './forums/entities/comment-reaction.entity';
 import { Task } from './courses/entities/courses-tasks.entity';
 import { TaskConfig } from './courses/entities/courses-tasks-config.entity';
 import { Quiz } from './courses/entities/courses-quizzes.entity';
@@ -54,6 +57,7 @@ import { UserSession } from './progress/entities/user-session.entity';
 import { UserActivityLog } from './users/entities/user-activity-log.entity';
 import { ContentsModule } from './contents/contents.module';
 import { ModulesModule } from './modules/modules.module';
+import { ForumsModule } from './forums/forums.module';
 
 
 @Module({
@@ -69,7 +73,7 @@ import { ModulesModule } from './modules/modules.module';
       database: process.env.DATABASE_NAME || 'net_db',
       username: process.env.DATABASE_USER || 'postgres',
       password: process.env.DATABASE_PASSWORD || 'postgres',
-      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, TenantViewConfig, TenantComponentConfig, Subscription, UserConfig, UserProfileConfig, UserNotificationConfig, Section, Courses, CourseConfiguration, CourseTranslation, CoursesViewsConfig, Permission, CourseModule, CourseModuleConfig, ModuleItem, ContentItem, Forum, Task, TaskConfig, Quiz, Survey, CoursesUsers, UserCourseProgress, UserModuleProgress, UserItemProgress, UserSession, UserActivityLog],
+      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, TenantViewConfig, TenantComponentConfig, Subscription, UserConfig, UserProfileConfig, UserNotificationConfig, Section, Courses, CourseConfiguration, CourseTranslation, CoursesViewsConfig, Permission, CourseModule, CourseModuleConfig, ModuleItem, ContentItem, Forum, Task, TaskConfig, Quiz, Survey, CoursesUsers, UserCourseProgress, UserModuleProgress, UserItemProgress, UserSession, UserActivityLog, ForumComment, ForumReaction, CommentReaction],
       synchronize: true,
     }),
     UsersModule,
@@ -84,7 +88,8 @@ import { ModulesModule } from './modules/modules.module';
     PermissionsModule,
     UsersProgressModule,
     ContentsModule,
-    ModulesModule
+    ModulesModule,
+    ForumsModule
   ],
   controllers: [AppController],
   providers: [AppService, EventsGateway],

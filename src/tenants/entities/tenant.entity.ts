@@ -15,7 +15,7 @@ import { TenantComponentConfig } from './tenant-component-config.entity';
 import { Courses } from 'src/courses/entities/courses.entity';
 import { Section } from 'src/sections/entities/sections.entity';
 import { ContentItem } from 'src/contents/entities/courses-contents.entity';
-import { Forum } from 'src/courses/entities/courses-forums.entity';
+import { Forum } from 'src/forums/entities/forum.entity';
 import { Task } from 'src/courses/entities/courses-tasks.entity';
 import { Quiz } from 'src/courses/entities/courses-quizzes.entity';
 import { Survey } from 'src/courses/entities/courses-surveys.entity';
