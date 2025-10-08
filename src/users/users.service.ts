@@ -326,11 +326,11 @@ export class UsersService {
     return user;
   }
 
-  async findByEmail(email: string): Promise<User> {
+  async findByEmail(email: string, tenantId: string): Promise<User> {
     const user = await this.usersRepository.findOne({
-      where: { email },
+      where: { email, tenantId },
       select: ['id', 'email', 'lastName', 'password', 'name', 'isActive'],
-      relations: ['roles', 'profileConfig', 'notificationConfig']
+      relations: ['tenant', 'roles', 'profileConfig', 'notificationConfig']
     });
   
     if (!user) {
@@ -339,13 +339,43 @@ export class UsersService {
     return user;
   }
 
-  async findByEmailRegister(email: string): Promise<User | null> {
-    const user = await this.usersRepository.findOne({
-      where: { email },
-      select: ['id', 'email', 'name'],
-    });
-  
-    return user;
+  async findByDocument(document: string, tenantId: string): Promise<User | null> {
+    try {
+      // Buscar usuario por documento en profileConfig
+      // Nota: Esto asume que profileConfig tiene un campo documentNumber
+      const user = await this.usersRepository.findOne({
+        where: {
+          tenantId,
+          profileConfig: {
+            documentNumber: document
+          }
+        },
+        relations: ['roles', 'tenant']
+      });
+
+      return user;
+    } catch (error) {
+      console.error('Error al buscar usuario por documento:', error);
+      return null;
+    }
+  }
+
+  async findByEmailRegister(email: string, tenantId: string): Promise<User | null> {
+    this.logger.log(`Buscando usuario por email: ${email} y tenantId: ${tenantId}`);
+    try {
+      const user = await this.usersRepository.findOne({
+        where: { 
+          email,
+          tenantId 
+        },
+        select: ['id', 'email', 'name', 'tenantId'],
+      });
+    
+      return user;
+    } catch (error) {
+      console.error('Error al buscar usuario por email:', error);
+      return null;
+    }
   }
 
   async toggleActive(id: string): Promise<User> {

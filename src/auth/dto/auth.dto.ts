@@ -3,8 +3,21 @@ import { UserRole } from "src/common/enums/user-role.enum";
 
 // src/auth/dto/auth.dto.ts
 export class LoginDto {
-    email: string;
-    password: string;
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  document?: string;
+
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(6)
+  password: string;
+
+  @IsOptional()
+  tenantId?: string;
 }
   
 export class RegisterDto {
@@ -12,9 +25,9 @@ export class RegisterDto {
     @IsString()
     name: string;
   
-    @IsNotEmpty()
+    @IsOptional()
     @IsString()
-    lastName: string;
+    lastName?: string;
   
     @IsNotEmpty()
     @IsEmail()

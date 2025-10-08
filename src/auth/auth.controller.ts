@@ -25,10 +25,13 @@ export class AuthController {
   //   return this.jwtDebugUtil.analyzeToken(token);
   // }
 
+  @UseInterceptors(
+    TenantValidationInterceptor // Interceptor de tenant
+  )
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Req() req: Request): Promise<TokensResponseDto> {
+  async login(@Req() req: Request, @Body() loginDto: LoginDto): Promise<TokensResponseDto> {
     console.log('AuthController - login called with body:', req.body);
     return this.authService.login(req);
   }

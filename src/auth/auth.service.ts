@@ -29,10 +29,24 @@ export class AuthService {
   ) {}
   private readonly logger = new Logger(AuthService.name);
 
-  async validateUser(email: string, password: string): Promise<any> {
+  async validateUser(
+    identifier: string, 
+    password: string, 
+    tenantId: string,
+    identifierType: 'email' | 'document' = 'email'
+  ): Promise<any> {
     try {
+      let user;
 
-      const user = await this.usersService.findByEmail(email);
+      // Buscar usuario según el tipo de identificador
+      if (identifierType === 'email') {
+        console.log('🔍 Buscando usuario por email:', identifier);
+        user = await this.usersService.findByEmail(identifier, tenantId);
+      } else {
+        console.log('🔍 Buscando usuario por documento:', identifier);
+        user = await this.usersService.findByDocument(identifier, tenantId);
+      }
+
       console.log('📊 Usuario encontrado:', !!user);
 
       if (!user) {
@@ -77,13 +91,55 @@ export class AuthService {
 
   async login(req: Request): Promise<TokensResponseDto> {
     try {
-      const user = await this.validateUser(req.body.email, req.body.password);
+      const { email, document, password } = req.body;
+
+      // Validación: debe venir email O document
+      if (!email && !document) {
+        throw new BadRequestException('Email o documento son requeridos');
+      }
+
+      if (!password) {
+        throw new BadRequestException('La contraseña es requerida');
+      }
+
+      // El interceptor ya agregó la información del tenant
+      const tenantId = req.body.tenantId || (req as any).tenant?.id;
+      const tenant = (req as any).tenant;
+      
+      if (!tenantId) {
+        throw new BadRequestException('No se pudo determinar el tenant');
+      }
+
+      // Obtener loginMethod del tenant
+      const loginMethod = tenant?.config?.loginMethod || 'email';
+
+      // Validar que el método de login sea correcto según configuración
+      if (loginMethod === 'email' && !email) {
+        throw new BadRequestException('Este tenant requiere login con email');
+      }
+
+      if (loginMethod === 'document' && !document) {
+        throw new BadRequestException('Este tenant requiere login con documento');
+      }
+
+      // Validar usuario según el método configurado
+      const identifier = email || document;
+      const identifierType = email ? 'email' : 'document';
+      
+      const user = await this.validateUser(
+        identifier, 
+        password, 
+        tenantId, 
+        identifierType
+      );
+      
       console.log('✅ Usuario validado, generando tokens...');
       
       const tokens = await this.generateTokens(user, req);
       console.log('✅ Tokens generados exitosamente');
       
       return tokens;
+      
     } catch (error) {
       console.error('💥 Error en login:', error.message);
       throw error;
@@ -91,23 +147,30 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto, req: Request): Promise<{msg: string}> {
-    // ✅ Log correcto
     this.logger.log(`Logs register: ${JSON.stringify(registerDto)}`);
 
     try {
+      // Obtener configuración del tenant
+      const tenant = (req as any).tenant;
+      const tenantConfig = tenant?.config || {};
+
+      // Validar que el auto-registro esté permitido
+      if (tenantConfig.allowSelfRegistration === false) {
+        throw new ForbiddenException('El auto-registro no está permitido para este tenant');
+      }
+
+      // Validar campos requeridos según configuración del tenant
+      this.validateRequiredFields(registerDto, tenantConfig);
+
       // Revisar si usuario ya existe
-      const existingUser = await this.usersService.findByEmailRegister(registerDto.email);
+      const existingUser = await this.usersService.findByEmailRegister(
+        registerDto.email, 
+        registerDto.tenantId
+      );
+      
       if (existingUser) {
         throw new ConflictException('Este usuario ya existe');
       }
-
-      // if(!registerDto.name || !registerDto.lastName) {
-      //   throw new BadRequestException('El nombre y apellido son obligatorios');
-      // }else if (!registerDto.password) {
-      //   throw new BadRequestException('La contraseña es obligatoria');
-      // }else if (!registerDto.tenantId) {
-      //   throw new BadRequestException('El tenantId es obligatorio');
-      // }
 
       this.logger.log(`Registrando usuario para el tenant: ${registerDto.tenantId}`);
     
@@ -129,14 +192,14 @@ export class AuthService {
         throw new ConflictException(`El rol "${roleName}" no se encontró en la base de datos.`);
       }
 
-      // ✅ Crear userData que coincida con CreateUserDto
+      // Crear userData que coincida con CreateUserDto
       const userData: CreateUserDto = {
         email: registerDto.email,
         password: registerDto.password,
         name: registerDto.name,
-        lastName: registerDto.lastName,
+        lastName: registerDto.lastName || '',
         tenantId: registerDto.tenantId,
-        isActive: true, // valor por defecto
+        isActive: true,
 
         profileConfig: {
           type_document: registerDto.documentType,
@@ -175,7 +238,7 @@ export class AuthService {
       
     } catch (error) {
       this.logger.error('Error en registro de usuario:', error);
-      throw error; // Re-lanzar para que el interceptor lo maneje
+      throw error;
     }
   }
   
@@ -451,6 +514,59 @@ export class AuthService {
       case 'h': return value * 60 * 60 * 1000; // hours
       case 'd': return value * 24 * 60 * 60 * 1000; // days
       default: return 3600 * 1000; // default to 1 hour
+    }
+  }
+
+  private validateRequiredFields(registerDto: RegisterDto, tenantConfig: any): void {
+    const errors: string[] = [];
+
+    // Nombre y email siempre son requeridos
+    if (!registerDto.name) {
+      errors.push('El nombre es requerido');
+    }
+    if (!registerDto.email) {
+      errors.push('El email es requerido');
+    }
+
+    // Validar campos según configuración
+    if (tenantConfig.requireLastName && !registerDto.lastName) {
+      errors.push('El apellido es requerido');
+    }
+
+    if (tenantConfig.requirePhone && !registerDto.phone) {
+      errors.push('El teléfono es requerido');
+    }
+
+    if (tenantConfig.requireDocument && !registerDto.document) {
+      errors.push('El documento es requerido');
+    }
+
+    if (tenantConfig.requireDocumentType && !registerDto.documentType) {
+      errors.push('El tipo de documento es requerido');
+    }
+
+    if (tenantConfig.requireOrganization && !registerDto.organization) {
+      errors.push('La organización es requerida');
+    }
+
+    if (tenantConfig.requirePosition && !registerDto.position) {
+      errors.push('El cargo es requerido');
+    }
+
+    if (tenantConfig.requireGender && !registerDto.gender) {
+      errors.push('El género es requerido');
+    }
+
+    if (tenantConfig.requireCity && !registerDto.city) {
+      errors.push('La ciudad es requerida');
+    }
+
+    if (tenantConfig.requireAddress && !registerDto.address) {
+      errors.push('La dirección es requerida');
+    }
+
+    if (errors.length > 0) {
+      throw new BadRequestException(errors.join(', '));
     }
   }
 }
