@@ -3,11 +3,16 @@ import { Forum } from "../entities/forum.entity";
 export interface GetAllForumsOptions {
   courseId: string;
   search?: string;
-  contentType?: string;
   page?: number;
   limit?: number;
-  userId: string;
   tenantId: string;
+}
+
+export interface ForumStats {
+  totalForums: number;
+  totalThreads: number;
+  totalPosts: number;
+  activeUsers: number;
 }
 
 export interface PaginatedForumResponse {
@@ -20,4 +25,5 @@ export interface PaginatedForumResponse {
     hasNext: boolean;
     hasPrev: boolean;
   };
+  stats: ForumStats;
 }
