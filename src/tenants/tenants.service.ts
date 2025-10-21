@@ -13,9 +13,13 @@ import { LaravelWebhookService } from './laravel-webhook.service';
 import { CreateSubscriptionDto } from './dto/suscription-tenant-user.dto';
 import { PaginatedTenantsResponseDto, TenantQueryDto } from './dto/tenant-query.dto';
 import { User } from 'src/users/entities/user.entity';
-import { TenantConfig } from './entities/tenant-config.entity';
+import { LoginMethod, TenantConfig } from './entities/tenant-config.entity';
 import { TenantContactInfo } from './entities/tenant-contact-info.entity';
 import { TenantViewConfig, ViewType } from './entities/tenant-view-config.entity';
+
+import * as bcrypt from 'bcrypt';
+import { ComponentType, TenantComponentConfig } from './entities/tenant-component-config.entity';
+import { Role } from 'src/roles/entities/role.entity';
 
 @Injectable()
 export class TenantsService {
@@ -42,6 +46,12 @@ export class TenantsService {
 
     @InjectRepository(TenantViewConfig)
     private readonly tenantViewConfigRepository: Repository<TenantViewConfig>,
+
+    @InjectRepository(TenantComponentConfig)
+    private readonly tenantComponentConfigRepository: Repository<TenantComponentConfig>,
+
+    @InjectRepository(Role)
+    private readonly roleRepository: Repository<Role>,
     
     private readonly dataSource: DataSource,
 
@@ -211,7 +221,23 @@ export class TenantsService {
         maxUsers: dto.config?.maxUsers || dto.maxUsers || 10,
         storageLimit: dto.config?.storageLimit || dto.storageLimit || 150, // GB
         timezone: dto.timezone || 'America/Bogota',
-        language: dto.language || 'es-CO'
+        language: dto.language || 'es',
+        showProfile: dto.showProfile ?? true,
+        allowSelfRegistration: dto.allowSelfRegistration ?? true,
+        allowGoogleLogin: dto.allowGoogleLogin ?? false,
+        allowFacebookLogin: dto.allowFacebookLogin ?? false,
+        loginMethod: (dto.loginMethod as LoginMethod) || LoginMethod.EMAIL,
+        allowValidationStatusUsers: dto.allowValidationStatusUsers ?? true,
+        requireLastName: dto.requireLastName ?? true,
+        requirePhone: dto.requirePhone ?? true,
+        requireDocumentType: dto.requireDocumentType ?? true,
+        requireDocument: dto.requireDocument ?? true,
+        requireOrganization: dto.requireOrganization ?? false,
+        requirePosition: dto.requirePosition ?? false,
+        requireGender: dto.requireGender ?? false,
+        requireCity: dto.requireCity ?? false,
+        requireAddress: dto.requireAddress ?? false,
+        enableEmailNotifications: dto.enableEmailNotifications ?? true
       };
 
       const tenantConfig = this.tenantConfigRepository.create(configData);
@@ -225,25 +251,131 @@ export class TenantsService {
         address: dto.address,
         city: dto.city,
         country: dto.country,
-        contactEmail: dto.contactEmail || `contact@${dto.domain}`
+        contactEmail: dto.contactEmail || `contact@${dto.domain}`,
+        url_portal: dto.url_portal,
+        nit: dto.nit
       };
 
       const tenantContactInfo = this.tenantContactInfoRepository.create(contactInfoData);
       await queryRunner.manager.save(tenantContactInfo);
 
 
-      // Crear la configuracion de personalizacion de las vistas
-      const viewConfigData = {
-        tenant: savedTenant,
-        viewType: dto.homeSettings.type as ViewType,
-        allowBackground: dto.homeSettings.customBackground,
-        backgroundType: dto.homeSettings.backgroundType as 'image' | 'color' | 'none',
-        backgroundColor: dto.homeSettings.backgroundColor,
-        backgroundImagePath: dto.homeSettings.backgroundImage
-      };
+      // Crear configuraciones de vistas (homeSettings, videoCallSettings, etc.)
+      const viewConfigs = [
+        { settings: dto.homeSettings, viewType: ViewType.HOME },
+        { settings: dto.videoCallSettings, viewType: ViewType.VIDEOCALLS },
+        { settings: dto.metricsSettings, viewType: ViewType.METRICS },
+        { settings: dto.groupsSettings, viewType: ViewType.CUSTOMERS },
+        { settings: dto.sectionsSettings, viewType: ViewType.SECTIONS },
+        { settings: dto.faqSettings, viewType: ViewType.FREQUENTLYASK }
+      ];
 
-      const tenantViewConfig = this.tenantViewConfigRepository.create(viewConfigData);
-      await queryRunner.manager.save(tenantViewConfig);
+      for (const { settings, viewType } of viewConfigs) {
+        if (settings) {
+          // Extraer el título personalizado según el idioma del tenant
+          const language = dto.language || 'es-CO';
+          const languageCode = language.split('-')[0]; // 'es' de 'es-CO'
+          
+          let customTitle: string | undefined = undefined;
+          let customDescription: string | undefined = undefined;
+
+          if (settings.additionalSettings?.customTitles) {
+            // Intentar obtener el título en el idioma del tenant, si no, usar español o inglés
+            customTitle = settings.additionalSettings.customTitles[languageCode] 
+              || settings.additionalSettings.customTitles['es'] 
+              || settings.additionalSettings.customTitles['en']
+              || undefined;
+          }
+
+          if (settings.additionalSettings?.customDescriptions) {
+            customDescription = settings.additionalSettings.customDescriptions[languageCode]
+              || settings.additionalSettings.customDescriptions['es']
+              || settings.additionalSettings.customDescriptions['en']
+              || undefined;
+          }
+
+          const viewConfigData = {
+            tenant: savedTenant,
+            viewType: viewType,
+            title: customTitle,
+            description: customDescription,
+            allowBackground: settings.customBackground ?? false,
+            backgroundType: settings.backgroundType || 'none',
+            backgroundColor: settings.backgroundColor,
+            backgroundImagePath: settings.backgroundImage,
+            additionalSettings: settings.additionalSettings || {}
+          };
+
+          console.log(`Creating view config for ${viewType}:`, JSON.stringify(viewConfigData, null, 2));
+
+          const tenantViewConfig = this.tenantViewConfigRepository.create(viewConfigData);
+          await queryRunner.manager.save(tenantViewConfig);
+        }
+      }
+
+      // Crear configuración del componente Navbar
+      if (dto.backgroundColorNavbar || dto.textColorNavbar || dto.logoNavbar || dto.showNotifications !== undefined) {
+        const navbarConfigData = {
+          tenant: savedTenant,
+          componentType: ComponentType.NAVBAR,
+          componentName: 'Main Navbar',
+          isVisible: true,
+          backgroundColor: dto.backgroundColorNavbar,
+          textColor: dto.textColorNavbar,
+          logoUrl: dto.logoNavbar,
+          showNotifications: dto.showNotifications ?? true,
+          isActive: true
+        };
+
+        const navbarConfig = this.tenantComponentConfigRepository.create(navbarConfigData);
+        await queryRunner.manager.save(navbarConfig);
+      }
+
+      // Crear usuario administrador
+      if (dto.adminEmail && dto.adminPassword) {
+        // Buscar o crear el rol de administrador
+        let adminRole = await this.roleRepository.findOne({ 
+          where: { name: 'admin' } 
+        });
+
+        if (!adminRole) {
+          adminRole = this.roleRepository.create({
+            name: 'admin',
+            description: 'Administrador del sistema'
+          });
+          adminRole = await queryRunner.manager.save(adminRole);
+        }
+
+        // Verificar si ya existe un usuario con este email en este tenant
+        const existingAdmin = await this.userRepository.findOne({
+          where: { email: dto.adminEmail, tenantId: savedTenant.id }
+        });
+
+        if (existingAdmin) {
+          throw new ConflictException({
+            error: 'ADMIN_EMAIL_EXISTS',
+            message: `Ya existe un usuario con el email ${dto.adminEmail} en este tenant`,
+            field: 'adminEmail',
+            value: dto.adminEmail
+          });
+        }
+
+        const adminData = {
+          tenant: savedTenant,
+          tenantId: savedTenant.id,
+          name: dto.adminFirstName,
+          lastName: dto.adminLastName,
+          email: dto.adminEmail,
+          password: dto.adminPassword, // El @BeforeInsert() lo hasheará automáticamente
+          roles: [adminRole],
+          isActive: true
+        };
+
+        const adminUser = this.userRepository.create(adminData);
+        await queryRunner.manager.save(adminUser);
+
+        console.log("Admin user created successfully:", adminUser.id);
+      }
 
       // Commit de la transacción
       await queryRunner.commitTransaction();

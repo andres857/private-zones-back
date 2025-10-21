@@ -35,6 +35,9 @@ export class ViewSettingsDto {
   @IsOptional()
   @IsString()
   backgroundColor?: string;
+
+  @IsOptional()
+  additionalSettings?: Record<string, any>;
 }
 
 export class CreateTenantDto {
@@ -87,11 +90,11 @@ export class CreateTenantDto {
   @IsString({ message: 'El address debe ser una cadena de texto' })
   address: string;
 
-  @IsNotEmpty({ message: 'El city es requerido' })
+  @IsOptional()
   @IsString({ message: 'El city debe ser una cadena de texto' })
   city: string;
 
-  @IsNotEmpty({ message: 'El country es requerido' })
+  @IsOptional()
   @IsString({ message: 'El country debe ser una cadena de texto' })
   country: string;
 
@@ -120,7 +123,7 @@ export class CreateTenantDto {
 
   @IsOptional()
   @IsString({message: 'El nit debe ser una cadena de texto numerico'})
-  nit: String;
+  nit: string;
 
   @IsOptional()
   @IsString({message: 'El backgroundColorNavbar debe ser una cadena de texto'})
@@ -135,7 +138,7 @@ export class CreateTenantDto {
   logoNavbar: string;
 
   @IsOptional()
-  @IsString({message: 'El showNotifications debe ser boolean'})
+  @IsBoolean({message: 'El showNotifications debe ser boolean'})
   showNotifications: boolean
 
   @IsOptional()
@@ -177,5 +180,72 @@ export class CreateTenantDto {
     storageLimit?: number;
   }
 
+  @IsNotEmpty({message: 'El nombre del administrador es requerido'})
+  @IsString({message: 'El nombre del administrador debe ser una cadena de texto'})
+  adminFirstName: string;
 
+  @IsNotEmpty({message: 'El apellido del administrador es requerido'})
+  @IsString({message: 'El apellido del administrador debe ser una cadena de texto'})
+  adminLastName: string;
+
+  @IsNotEmpty({message: 'El email del administrador es requrido'})
+  @IsEmail({}, {message: 'El email del administrador no es válido'})
+  adminEmail: string;
+
+  @IsNotEmpty({message: 'La contraseña del administrador es requerida'})
+  @IsString({message: 'La contraseña del administrador debe ser una cadena de texto'})
+  @Length(8, 128, {message: 'La contraseña del administrador debe tener entre 8 y 128 caracteres'})
+  adminPassword: string;
+
+
+  @IsBoolean({message: 'showProfile debe ser true o false'})
+  showProfile: boolean;
+
+
+  @IsBoolean({message: 'allowSelfRegistration debe ser true o false'})
+  allowSelfRegistration: boolean;
+
+  @IsBoolean({message: 'allowGoogleLogin debe ser true o false'})
+  allowGoogleLogin: boolean;
+
+  @IsBoolean({message: 'allowFacebookLogin debe ser true o false'})
+  allowFacebookLogin: boolean;
+
+  @IsNotEmpty({message: 'El loginMethod es requerido'})
+  @IsString({message: 'El loginMethod debe ser una cadena de texto'})
+  @IsIn(['email', 'document', 'both'], {message: 'El loginMethod debe ser: email o numero de indentificación'})
+  loginMethod: string;
+
+  @IsBoolean({message: 'allowValidationStatusUsers debe ser true o false'})
+  allowValidationStatusUsers: boolean;
+
+  @IsBoolean({message: 'requireLastName debe ser true o false'})
+  requireLastName: boolean;
+
+  @IsBoolean({message: 'requirePhone debe ser true o false'})
+  requirePhone: boolean;
+
+  @IsBoolean({message: 'requireDocumentType debe ser true o false'})
+  requireDocumentType: boolean;
+
+  @IsBoolean({message: 'requireDocument debe ser true o false'})
+  requireDocument: boolean;
+
+  @IsBoolean({message: 'requireOrganization debe ser true o false'})
+  requireOrganization: boolean;
+
+  @IsBoolean({message: 'requirePosition debe ser true o false'})
+  requirePosition: boolean;
+
+  @IsBoolean({message: 'requireGender debe ser true o false'})
+  requireGender: boolean;
+
+  @IsBoolean({message: 'requireCity debe ser true o false'})
+  requireCity: boolean;
+
+  @IsBoolean({message: 'requireAddress debe ser true o false'})
+  requireAddress: boolean;
+
+  @IsBoolean({message: 'enableEmailNotifications debe ser true o false'})
+  enableEmailNotifications: boolean;
 }

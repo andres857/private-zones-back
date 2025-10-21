@@ -13,10 +13,11 @@ import { TenantConfig } from './entities/tenant-config.entity';
 import { TenantContactInfo } from './entities/tenant-contact-info.entity';
 import { TenantComponentConfig } from './entities/tenant-component-config.entity';
 import { TenantViewConfig } from './entities/tenant-view-config.entity';
+import { Role } from 'src/roles/entities/role.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Tenant, TenantProduct, TenantConfig, TenantContactInfo, TenantViewConfig, Subscription, User, TenantComponentConfig]),
+    TypeOrmModule.forFeature([Tenant, TenantProduct, TenantConfig, TenantContactInfo, TenantViewConfig, Subscription, User, TenantComponentConfig, Role]),
     HttpModule,
   ],
   controllers: [TenantsController],
