@@ -117,6 +117,31 @@ export class ForumsService {
         }
     }
 
+    async getById(forumId: string, tenantId: string): Promise<Forum> {
+        try {
+            const forum = await this.forumRepository.findOne({
+                where: { 
+                    id: forumId,
+                    tenantId 
+                },
+                relations: ['author', 'comments', 'reactions']
+            });
+
+            if (!forum) {
+                throw new BadRequestException('Foro no encontrado');
+            }
+
+            return forum;
+        } catch (error) {
+            if (error instanceof BadRequestException) {
+                throw error;
+            }
+
+            console.error('Error obteniendo foro por ID:', error);
+            throw new InternalServerErrorException('Error interno obteniendo el foro');
+        }
+    }
+
     async getAll(options: GetAllForumsOptions): Promise<PaginatedForumResponse> {
     try {
         const { courseId, search, page = 1, limit = 12, tenantId } = options;

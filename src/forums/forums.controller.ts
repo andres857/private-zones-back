@@ -55,6 +55,27 @@ export class ForumsController {
         }
     }
 
+    @Get('/:forumId')
+    async getForumById(@Req() request: AuthenticatedRequest, @Param('forumId') forumId: string) {
+        try {
+            const tenantId = request.tenant?.id;
+
+            if (!tenantId) {
+                throw new BadRequestException('Tenant no validado');
+            }
+
+            const forum = await this.forumsService.getById(forumId, tenantId);
+
+            return {
+                success: true,
+                message: 'Foro obtenido exitosamente',
+                data: forum
+            };
+        } catch (error) {
+            throw error;
+        }
+    }
+
     @Get('/course/:courseId')
     async getAllForums(
         @Req() request: AuthenticatedRequest,
