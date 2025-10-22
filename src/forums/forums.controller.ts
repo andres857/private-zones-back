@@ -17,7 +17,7 @@ export class ForumsController {
     async createForum(@Req() request: AuthenticatedRequest, @Body() body: any){
         try {
 
-            const savedForum = await this.forumsService.createForum(body);
+            const savedForum = await this.forumsService.createForum(body, request.user);
 
             return {
                 success: true,

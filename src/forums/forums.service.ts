@@ -19,7 +19,7 @@ export class ForumsService {
         ) { }
 
 
-    async createForum(createForumDto: CreateForumDto): Promise<Forum> {
+    async createForum(createForumDto: CreateForumDto, user): Promise<Forum> {
         try {
 
             if (!createForumDto.title || createForumDto.title.trim().length < 2 || createForumDto.title.trim().length > 100) {
@@ -41,7 +41,7 @@ export class ForumsService {
             newForum.category = createForumDto.category?.trim() || null;
             newForum.tags = createForumDto.tags || [];
             newForum.viewCount = createForumDto.viewCount || 0;
-            newForum.authorId = createForumDto.authorId;
+            newForum.authorId = user.id;
             newForum.tenantId = createForumDto.tenantId;
 
             const savedForum = await this.forumRepository.save(newForum);
