@@ -1,5 +1,5 @@
 // src/auth/auth.controller.ts
-import { Controller, Post, Body, UseGuards, Req, HttpCode, HttpStatus, Get, UseInterceptors } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, HttpCode, HttpStatus, Get, UseInterceptors, ClassSerializerInterceptor } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto, RefreshTokenDto, TokensResponseDto, LogoutDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -14,6 +14,7 @@ import { TenantValidationInterceptor } from './interceptors/tenant-validation.in
 import { User } from 'src/users/entities/user.entity';
 
 import { JwtDebugUtil } from './utils/jwt-debug.util';
+import { UserProfileResponseDto } from './dto/user-profile-response.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -24,6 +25,18 @@ export class AuthController {
   // debugToken(@Body('token') token: string) {
   //   return this.jwtDebugUtil.analyzeToken(token);
   // }
+
+  // Profile User
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(ClassSerializerInterceptor)
+  @Get('profile')
+  async getUserProfile(@GetUser() user: User): Promise<UserProfileResponseDto> {
+    try {
+      return this.authService.getUserProfile(user.id);
+    } catch (error) {
+      throw error;
+    }
+  }
 
   @UseInterceptors(
     TenantValidationInterceptor // Interceptor de tenant

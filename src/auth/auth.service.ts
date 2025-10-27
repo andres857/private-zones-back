@@ -1,5 +1,5 @@
 // src/auth/auth.service.ts
-import { Injectable, UnauthorizedException, BadRequestException, ConflictException, ForbiddenException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, ConflictException, ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -14,6 +14,8 @@ import { Request } from 'express';
 import { RolesService } from 'src/roles/roles.service';
 import { TenantsService } from 'src/tenants/tenants.service';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
+import { plainToClass } from 'class-transformer';
+import { UserProfileResponseDto } from './dto/user-profile-response.dto';
 
 @Injectable()
 export class AuthService {
@@ -24,6 +26,9 @@ export class AuthService {
     private configService: ConfigService,
     @InjectRepository(RefreshToken)
     private refreshTokenRepository: Repository<RefreshToken>,
+
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
 
     private readonly tenantsService: TenantsService,
   ) {}
@@ -356,6 +361,22 @@ export class AuthService {
         JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ? 'SET' : 'NOT_SET',
         JWT_REFRESH_EXPIRATION: process.env.JWT_REFRESH_EXPIRATION || 'NOT_SET'
       }
+    });
+  }
+
+  async getUserProfile(userId: string): Promise<UserProfileResponseDto> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['roles', 'config', 'profileConfig'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    // Retorna solo las propiedades necesarias
+    return plainToClass(UserProfileResponseDto, user, { 
+      excludeExtraneousValues: true 
     });
   }
 

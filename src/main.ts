@@ -65,7 +65,8 @@ async function bootstrap() {
     whitelist: true,
     forbidNonWhitelisted: true,
     transform: true,
-    validateCustomDecorators: true,
+    validateCustomDecorators: false,
+    skipMissingProperties: false,
     exceptionFactory: (errors) => {
       console.log('Validation errors:', JSON.stringify(errors, null, 2)); // Para debugging
       
