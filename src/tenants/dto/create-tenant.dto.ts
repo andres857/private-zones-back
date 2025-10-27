@@ -248,4 +248,19 @@ export class CreateTenantDto {
 
   @IsBoolean({message: 'enableEmailNotifications debe ser true o false'})
   enableEmailNotifications: boolean;
+
+  @IsString({message: 'El faviconPath debe ser una cadena de texto'})
+  faviconPath: string;
+
+  @IsString({message: 'El logoPath debe ser una cadena de texto'})
+  logoPath: string;
+
+  @IsString({message: 'El iconPath debe ser una cadena de texto'})
+  iconPath: string;
+
+  @IsString({message: 'El loginBackgroundPath debe ser una cadena de texto'})
+  loginBackgroundPath: string;
+
+  @IsOptional()
+  logoAdditionalSettings?: Record<string, any>;
 }

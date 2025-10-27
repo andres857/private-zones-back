@@ -237,7 +237,11 @@ export class TenantsService {
         requireGender: dto.requireGender ?? false,
         requireCity: dto.requireCity ?? false,
         requireAddress: dto.requireAddress ?? false,
-        enableEmailNotifications: dto.enableEmailNotifications ?? true
+        enableEmailNotifications: dto.enableEmailNotifications ?? true,
+        faviconPath: dto.faviconPath || '',
+        logoPath: dto.logoPath || '',
+        loginBackgroundPath: dto.loginBackgroundPath || '',
+        iconPath: dto.iconPath || ''
       };
 
       const tenantConfig = this.tenantConfigRepository.create(configData);
