@@ -16,6 +16,8 @@ import { TenantsService } from 'src/tenants/tenants.service';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
 import { plainToClass } from 'class-transformer';
 import { UserProfileResponseDto } from './dto/user-profile-response.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UserProfileConfig } from 'src/users/entities/user-profile-config.entity';
 
 @Injectable()
 export class AuthService {
@@ -29,6 +31,9 @@ export class AuthService {
 
     @InjectRepository(User)
     private userRepository: Repository<User>,
+
+    @InjectRepository(UserProfileConfig)
+    private userProfileConfigRepository: Repository<UserProfileResponseDto>,
 
     private readonly tenantsService: TenantsService,
   ) {}
@@ -378,6 +383,78 @@ export class AuthService {
     return plainToClass(UserProfileResponseDto, user, { 
       excludeExtraneousValues: true 
     });
+  }
+
+  async updateUserProfile(
+    userId: string, 
+    updateProfileDto: UpdateProfileDto
+  ): Promise<UserProfileResponseDto> {
+    // Buscar usuario con relaciones
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['roles', 'profileConfig'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    // Actualizar campos básicos del usuario
+    if (updateProfileDto.name !== undefined) {
+      user.name = updateProfileDto.name;
+    }
+    if (updateProfileDto.lastName !== undefined) {
+      user.lastName = updateProfileDto.lastName;
+    }
+
+    await this.userRepository.save(user);
+
+    // Manejar profileConfig
+    if (!user.profileConfig) {
+      // Crear nuevo profileConfig
+      const newProfileConfig = new UserProfileConfig();
+      newProfileConfig.phoneNumber = updateProfileDto.phoneNumber || '';
+      newProfileConfig.organization = updateProfileDto.organization || '';
+      newProfileConfig.charge = updateProfileDto.charge || '';
+      newProfileConfig.city = updateProfileDto.city || '';
+      newProfileConfig.country = updateProfileDto.country || '';
+      newProfileConfig.address = updateProfileDto.address || '';
+      newProfileConfig.bio = updateProfileDto.bio || '';
+      
+      const savedConfig = await this.userProfileConfigRepository.save(newProfileConfig);
+      
+      // Asociar el profileConfig al usuario
+      user.profileConfig = savedConfig;
+      await this.userRepository.save(user);
+    } else {
+      // Actualizar profileConfig existente
+      if (updateProfileDto.phoneNumber !== undefined) {
+        user.profileConfig.phoneNumber = updateProfileDto.phoneNumber || '';
+      }
+      if (updateProfileDto.organization !== undefined) {
+        user.profileConfig.organization = updateProfileDto.organization;
+      }
+      if (updateProfileDto.charge !== undefined) {
+        user.profileConfig.charge = updateProfileDto.charge;
+      }
+      if (updateProfileDto.city !== undefined) {
+        user.profileConfig.city = updateProfileDto.city;
+      }
+      if (updateProfileDto.country !== undefined) {
+        user.profileConfig.country = updateProfileDto.country;
+      }
+      if (updateProfileDto.address !== undefined) {
+        user.profileConfig.address = updateProfileDto.address;
+      }
+      if (updateProfileDto.bio !== undefined) {
+        user.profileConfig.bio = updateProfileDto.bio;
+      }
+
+      await this.userProfileConfigRepository.save(user.profileConfig);
+    }
+
+    // Retornar el perfil actualizado
+    return this.getUserProfile(userId);
   }
 
   private async generateTokens(user: User, req: Request): Promise<TokensResponseDto> {

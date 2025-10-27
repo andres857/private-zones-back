@@ -1,5 +1,5 @@
 // src/auth/auth.controller.ts
-import { Controller, Post, Body, UseGuards, Req, HttpCode, HttpStatus, Get, UseInterceptors, ClassSerializerInterceptor } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, HttpCode, HttpStatus, Get, UseInterceptors, ClassSerializerInterceptor, Patch } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto, RefreshTokenDto, TokensResponseDto, LogoutDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -15,6 +15,7 @@ import { User } from 'src/users/entities/user.entity';
 
 import { JwtDebugUtil } from './utils/jwt-debug.util';
 import { UserProfileResponseDto } from './dto/user-profile-response.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -33,6 +34,20 @@ export class AuthController {
   async getUserProfile(@GetUser() user: User): Promise<UserProfileResponseDto> {
     try {
       return this.authService.getUserProfile(user.id);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(ClassSerializerInterceptor)
+  @Patch('profile')
+  async updateUserProfile(
+    @GetUser() user: User,
+    @Body() updateProfileDto: UpdateProfileDto
+  ): Promise<UserProfileResponseDto> {
+    try {
+      return this.authService.updateUserProfile(user.id, updateProfileDto);
     } catch (error) {
       throw error;
     }

@@ -11,7 +11,7 @@ export class UserProfileConfig {
     id: string;
 
     @OneToOne(() => User, user => user.profileConfig, { onDelete: 'CASCADE' })
-    @JoinColumn()
+    @JoinColumn({ name: 'userId' })
     user: User;
 
     // Información del perfil

@@ -14,6 +14,7 @@ import { RolesModule } from '../roles/roles.module';
 import { RefreshToken } from './entities/token.entity';
 import { TenantsModule } from 'src/tenants/tenants.module';
 import { JwtDebugUtil } from './utils/jwt-debug.util';
+import { UserProfileConfig } from 'src/users/entities/user-profile-config.entity';
 
 @Module({
   imports: [
@@ -53,7 +54,7 @@ import { JwtDebugUtil } from './utils/jwt-debug.util';
         };
       },
     }),
-    TypeOrmModule.forFeature([User, RefreshToken]),
+    TypeOrmModule.forFeature([User, RefreshToken, UserProfileConfig]),
     UsersModule,
     RolesModule,
     TenantsModule
