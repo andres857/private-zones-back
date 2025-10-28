@@ -23,7 +23,8 @@ export class CreateCourseDto {
     @Length(2, 100, { message: 'El nombre debe tener entre 2 y 100 caracteres' })
     title: string;
 
-    @IsNotEmpty({ message: 'El slug del curso es requerido' })
+    // @IsNotEmpty({ message: 'El slug del curso es requerido' })
+    @IsOptional()
     slug?: string;
 
     @IsNotEmpty({ message: 'El tenant del curso es requerido' })
@@ -36,8 +37,8 @@ export class CreateCourseDto {
     
 
     @IsOptional()
-    @IsString({ message: 'La visibilidad debe ser booleano' })
-    visibility?: boolean;
+    @IsIn(['public', 'private', 'restricted'], { message: 'La visibilidad debe ser public, private o restricted' })
+    visibility?: string;
 
     @IsOptional()
     @IsString({message: 'subCategory debe ser una cadena de texto'})
@@ -176,6 +177,9 @@ export class CreateCourseDto {
     @IsOptional()
     @IsString({ 'message': 'El thumbnailImage debe ser una cadena de texto' })
     thumbnailImage: string;
+
+    @IsOptional()
+    isActive?: boolean;
 
     @IsOptional()
     created_at?: string;

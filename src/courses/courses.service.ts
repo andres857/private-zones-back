@@ -18,6 +18,7 @@ import { UserModuleProgress, ModuleStatus } from 'src/progress/entities/user-mod
 import { UserItemProgress, ItemStatus } from 'src/progress/entities/user-item-progress.entity';
 import { CourseModule } from './entities/courses-modules.entity';
 import { FindAllCoursesParams, PaginatedCoursesResponse } from './interfaces/courses.interface';
+import { CourseConfiguration } from './entities/courses-config.entity';
 
 @Injectable()
 export class CoursesService {
@@ -84,6 +85,104 @@ export class CoursesService {
     }
 
     /**
+     * Prepara los datos de configuración del curso
+     */
+    private prepareCourseConfiguration(createCourseDto: CreateCourseDto, courseId: string): CourseConfiguration {
+        const configuration = new CourseConfiguration();
+        
+        // Asignar ID del curso
+        configuration.courseId = courseId;
+
+        // Visibilidad
+        if (createCourseDto.visibility !== undefined) {
+            configuration.visibility = createCourseDto.visibility as any;
+        }
+
+        // Status
+        if (createCourseDto.status) {
+            configuration.status = createCourseDto.status as any;
+        }
+
+        // Información académica
+        if (createCourseDto.acronym) {
+            configuration.acronym = createCourseDto.acronym;
+        }
+        
+        if (createCourseDto.code) {
+            configuration.code = createCourseDto.code;
+        }
+        
+        if (createCourseDto.subcategory) {
+            configuration.subcategory = createCourseDto.subcategory;
+        }
+
+        // Intensidad y duración
+        if (createCourseDto.intensity !== undefined) {
+            configuration.intensity = createCourseDto.intensity;
+        }
+        
+        if (createCourseDto.estimatedHours !== undefined) {
+            configuration.estimatedHours = createCourseDto.estimatedHours;
+        }
+
+        // Color del título
+        if (createCourseDto.colorTitle) {
+            configuration.colorTitle = createCourseDto.colorTitle;
+        } else {
+            configuration.colorTitle = '#000000'; // Color por defecto
+        }
+
+        // Orden
+        if (createCourseDto.order !== undefined) {
+            configuration.order = createCourseDto.order;
+        } else {
+            configuration.order = 0; // Orden por defecto
+        }
+
+        // Fechas
+        if (createCourseDto.startDate) {
+            configuration.startDate = new Date(createCourseDto.startDate);
+        }
+        
+        if (createCourseDto.endDate) {
+            configuration.endDate = new Date(createCourseDto.endDate);
+        }
+        
+        if (createCourseDto.enrollmentStartDate) {
+            configuration.enrollmentStartDate = new Date(createCourseDto.enrollmentStartDate);
+        }
+        
+        if (createCourseDto.enrollmentEndDate) {
+            configuration.enrollmentEndDate = new Date(createCourseDto.enrollmentEndDate);
+        }
+
+        // Configuración de inscripciones
+        if (createCourseDto.maxEnrollments !== undefined) {
+            configuration.maxEnrollments = createCourseDto.maxEnrollments;
+        }
+        
+        if (createCourseDto.requiresApproval !== undefined) {
+            configuration.requiresApproval = createCourseDto.requiresApproval;
+        }
+        
+        if (createCourseDto.allowSelfEnrollment !== undefined) {
+            configuration.allowSelfEnrollment = createCourseDto.allowSelfEnrollment;
+        }
+
+        // Link de invitación
+        if (createCourseDto.invitationLink) {
+            configuration.invitation_link = createCourseDto.invitationLink;
+        }
+
+        // Imágenes (priorizar las propiedades sin Url)
+        configuration.coverImage = createCourseDto.coverImage || createCourseDto.coverImageUrl || '';
+        configuration.menuImage = createCourseDto.menuImage || createCourseDto.menuImageUrl || '';
+        configuration.thumbnailImage = createCourseDto.thumbnailImage || createCourseDto.thumbnailImageUrl || '';
+
+        return configuration;
+    }
+
+    /**
      * Crea un nuevo curso
      */
     async create(createCourseDto: CreateCourseDto): Promise<Courses> {
@@ -97,7 +196,9 @@ export class CoursesService {
             course.slug = await this.generateUniqueSlug(createCourseDto, createCourseDto.tenantId);
             console.log('Slug generado:', course.slug);
 
-            createCourseDto.slug = course.slug;
+            console.log('course', course);
+
+            // createCourseDto.slug = course.slug;
 
             // Preparar datos del curso (sin traducciones)
             const courseData = this.prepareCourseData(createCourseDto);
@@ -112,8 +213,20 @@ export class CoursesService {
 
             console.log('Objeto Course preparado:', course);
 
-            // Guardar el curso con sus traducciones
-            return await this.courseRepository.save(course);
+            // Guardar el curso primero (para obtener el ID)
+            const savedCourse = await this.courseRepository.save(course);
+            console.log('Curso guardado con ID:', savedCourse.id);
+
+            // Crear y asignar la configuración del curso
+            const configuration = this.prepareCourseConfiguration(createCourseDto, savedCourse.id);
+            savedCourse.configuration = configuration;
+
+            // Guardar nuevamente con la configuración
+            const finalCourse = await this.courseRepository.save(savedCourse);
+            
+            console.log('Curso creado con configuración exitosamente');
+            
+            return finalCourse;
 
         } catch (error) {
             console.error('Error completo:', error);
@@ -121,40 +234,73 @@ export class CoursesService {
         }
     }
 
-    private prepareCourseData(createCourseDto: CreateCourseDto): any {
-        const { translations, ...courseData } = createCourseDto;
+    private prepareCourseData(createCourseDto: CreateCourseDto): Partial<Courses> {
+        // Excluir todos los campos que NO pertenecen a la entidad Courses
+        const { 
+            // Excluir traducciones
+            translations,
+            
+            // Excluir slug (ya fue generado)
+            slug,
+            
+            // Excluir campos que van en CourseConfiguration
+            visibility,
+            subcategory,
+            acronym,
+            code,
+            intensity,
+            estimatedHours,
+            status,
+            colorTitle,
+            order,
+            startDate,
+            endDate,
+            enrollmentStartDate,
+            enrollmentEndDate,
+            maxEnrollments,
+            requiresApproval,
+            allowSelfEnrollment,
+            invitationLink,
+            coverImage,
+            menuImage,
+            thumbnailImage,
+            coverImageUrl,
+            menuImageUrl,
+            thumbnailImageUrl,
+            
+            // Excluir campos de traducciones (duplicados)
+            title,
+            description,
+            titleEn,
+            descriptionEn,
+            tagsEn,
+            tagsEs,
+            keywordsEs,
+            keywordsEn,
+            
+            // Excluir campos de CoursesViewsConfig
+            contentsViewActive,
+            contentsBackgroundType,
+            contentsBackgroundColor,
+            contentsCustomTitle,
+            forumsViewActive,
+            
+            // Excluir fechas de auditoría (manejadas por TypeORM)
+            created_at,
+            updated_at,
+            deleted_at,
+            
+            ...courseData 
+        } = createCourseDto;
 
-        // Procesar fechas
-        const processedData: any = { ...courseData };
+        // Lo único que realmente pertenece a Courses es:
+        const processedData: Partial<Courses> = {
+            tenantId: courseData.tenantId,
+        };
 
-        // Fechas de auditoría
-        if (courseData.created_at && this.isValidDate(courseData.created_at)) {
-            processedData.created_at = new Date(courseData.created_at);
-        }
-
-        if (courseData.updated_at && this.isValidDate(courseData.updated_at)) {
-            processedData.updated_at = new Date(courseData.updated_at);
-        }
-
-        if (courseData.deleted_at && this.isValidDate(courseData.deleted_at)) {
-            processedData.deleted_at = new Date(courseData.deleted_at);
-        }
-
-        // Fechas de configuración del curso
-        if (courseData.startDate && this.isValidDate(courseData.startDate)) {
-            processedData.startDate = new Date(courseData.startDate);
-        }
-
-        if (courseData.endDate && this.isValidDate(courseData.endDate)) {
-            processedData.endDate = new Date(courseData.endDate);
-        }
-
-        if (courseData.enrollmentStartDate && this.isValidDate(courseData.enrollmentStartDate)) {
-            processedData.enrollmentStartDate = new Date(courseData.enrollmentStartDate);
-        }
-
-        if (courseData.enrollmentEndDate && this.isValidDate(courseData.enrollmentEndDate)) {
-            processedData.enrollmentEndDate = new Date(courseData.enrollmentEndDate);
+        // isActive puede ser opcional si lo quieres controlar manualmente
+        if (courseData.isActive !== undefined) {
+            processedData.isActive = courseData.isActive;
         }
 
         return processedData;
