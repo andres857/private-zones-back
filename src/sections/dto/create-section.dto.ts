@@ -87,6 +87,6 @@ export class CreateSectionDto {
 
     @IsOptional()
     @IsArray()
-    @IsUUID('4', { each: true })
+    // @IsUUID('4', { each: true })
     courseIds?: string[];
 }

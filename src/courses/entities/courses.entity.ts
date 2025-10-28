@@ -33,17 +33,6 @@ export class Courses {
 
   // ManyToMany
   @ManyToMany(() => Section, section => section.courses)
-  @JoinTable({
-    name: 'courses_sections', // nombre de la tabla intermedia
-    joinColumn: {
-      name: 'courseId',
-      referencedColumnName: 'id'
-    },
-    inverseJoinColumn: {
-      name: 'sectionId',
-      referencedColumnName: 'id'
-    }
-  })
   sections: Section[];
 
   @Column({ default: true })

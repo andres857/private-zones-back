@@ -64,8 +64,16 @@ export class SectionsService {
         const queryBuilder = this.sectionsRepository
         .createQueryBuilder('section')
         .where('section.tenantId = :tenantId', { tenantId: tenant.id })
+        .loadRelationCountAndMap('section.courseCount', 'section.courses')
+        // Contar solo cursos activos
+        // .loadRelationCountAndMap(
+        //     'section.courseCount', 
+        //     'section.courses',
+        //     'course',
+        //     (qb) => qb.where('course.isActive = :isActive', { isActive: true })
+        // );
         .leftJoinAndSelect('section.courses', 'courses')
-        .leftJoinAndSelect('courses.configuration', 'config');
+        .leftJoinAndSelect('courses.configuration', 'config')
         // .leftJoinAndSelect('section.tenant', 'tenant')
         // .leftJoinAndSelect('section.courses', 'courses');
 
@@ -126,11 +134,19 @@ export class SectionsService {
     }
 
     async findOne(id: string): Promise<Section> {
-        const section = await this.sectionsRepository.findOne({ where: { id }, relations: ['courses', 'courses.configuration', 'courses.translations'] });
+        const section = await this.sectionsRepository.findOne({ 
+            where: { id }, 
+            relations: [
+                'courses', 
+                'courses.configuration', 
+                'courses.translations'
+            ] 
+        });
 
         if (!section) {
-          throw new NotFoundException(`Seccion con ID ${id} no encontrado`);
+            throw new NotFoundException(`Seccion con ID ${id} no encontrado`);
         }
+        
         return section;
     }
 
@@ -154,7 +170,7 @@ export class SectionsService {
 
         // Crear la sección
         const section = this.sectionsRepository.create(sectionData);
-        
+
         // Si hay cursos especificados, asociarlos
         if (courseIds && courseIds.length > 0) {
             const courses = await this.coursesRepository.find({

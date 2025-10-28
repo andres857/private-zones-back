@@ -5,6 +5,7 @@ import { Section } from './entities/sections.entity';
 import { CreateSectionDto } from './dto/create-section.dto';
 import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
 import { UpdateSectionDto } from './dto/update-section.dto';
+import { Courses } from 'src/courses/entities/courses.entity';
 
 @Controller('sections')
 export class SectionsController {
@@ -37,11 +38,11 @@ export class SectionsController {
     @Post('create')
     @HttpCode(HttpStatus.CREATED)
     async createSection(@Body() createSectionDto: CreateSectionDto): Promise<Section> {
-        return this.sectionsService.createSection(createSectionDto);
+        return this.sectionsService.createSectionWithCourses(createSectionDto);
     }
 
     @UseInterceptors(TenantValidationInterceptor)
-    @Put(':id')
+    @Put(':id/update')
     @HttpCode(HttpStatus.OK)
     async updateSection(
         @Param('id', ParseUUIDPipe) id: string,

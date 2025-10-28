@@ -1,7 +1,7 @@
 // src/sections/entities/sections.entity.ts
 import { Courses } from 'src/courses/entities/courses.entity';
 import { Tenant } from 'src/tenants/entities/tenant.entity';
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn, ManyToMany } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn, ManyToMany, JoinTable } from 'typeorm';
 
 @Entity('sections')
 export class Section {
@@ -36,8 +36,18 @@ export class Section {
     @Column({nullable: true})
     bannerPath: string;
 
-    // ManyToMany
     @ManyToMany(() => Courses, course => course.sections)
+    @JoinTable({
+        name: 'courses_sections',
+        joinColumn: {
+            name: 'sectionId',
+            referencedColumnName: 'id'
+        },
+        inverseJoinColumn: {
+            name: 'courseId',
+            referencedColumnName: 'id'
+        }
+    })
     courses: Courses[];
 
     // NUEVO: Método helper para obtener cursos activos

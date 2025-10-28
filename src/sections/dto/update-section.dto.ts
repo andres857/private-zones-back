@@ -30,9 +30,13 @@ export class UpdateSectionDto {
   @IsString()
   bannerPath?: string;
 
+  @IsString()
+  @IsOptional()
+  tenantId?: string;
+
   // NUEVO: Array de IDs de cursos
   @IsOptional()
   @IsArray()
-  @IsUUID('4', { each: true })
+  // @IsUUID('4', { each: true })
   courseIds?: string[];
 }
