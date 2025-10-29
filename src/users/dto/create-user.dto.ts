@@ -16,7 +16,9 @@ import {
   ValidateNested,
   IsObject
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+
+import { DocumentType } from '../entities/user-profile-config.entity';
 
 
 // DTO para actualizar configuración del perfil
@@ -32,10 +34,10 @@ export class UpdateUserProfileConfigDto {
 
   @IsOptional()
   @IsString({ message: 'type_document debe ser string' })
-  @IsEnum(['DNI', 'CEDULA', 'PASAPORTE', 'LICENCIA', 'TARJETA_DE_IDENTIDAD'], {
-    message: 'Tipo de documento debe ser: DNI, CEDULA, PASAPORTE, LICENCIA o TARJETA_DE_IDENTIDAD'
+  @IsEnum(DocumentType, {
+    message: 'Tipo de documento debe ser un valor válido'
   })
-  type_document?: string;
+  type_document?: DocumentType;
 
   @IsOptional()
   @IsString({ message: 'documentNumber debe ser string' })
@@ -72,7 +74,6 @@ export class UpdateUserProfileConfigDto {
   address?: string;
 
   @IsOptional()
-  @IsDateString({}, { message: 'dateOfBirth debe ser una fecha válida (YYYY-MM-DD)' })
   dateOfBirth?: string;
 }
 
@@ -139,16 +140,16 @@ export class UpdateUserDto {
   email?: string;
 
   // Nota: Para actualizar contraseña, considera crear un endpoint separado por seguridad
-  @IsOptional()
-  @IsString({ message: 'La contraseña debe ser un texto' })
-  @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
-  @Matches(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
-    {
-      message: 'La contraseña debe contener al menos: 1 mayúscula, 1 minúscula, 1 número y 1 carácter especial'
-    }
-  )
-  password?: string;
+  // @IsOptional()
+  // @IsString({ message: 'La contraseña debe ser un texto' })
+  // @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
+  // @Matches(
+  //   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
+  //   {
+  //     message: 'La contraseña debe contener al menos: 1 mayúscula, 1 minúscula, 1 número y 1 carácter especial'
+  //   }
+  // )
+  // password?: string;
 
   // tenantId generalmente no se actualiza, lo excluimos
   
@@ -191,10 +192,10 @@ export class CreateUserProfileConfigDto {
 
   @IsOptional()
   @IsString({ message: 'type_document debe ser string' })
-  @IsEnum(['DNI', 'CEDULA', 'PASAPORTE', 'LICENCIA', 'TARJETA_DE_IDENTIDAD'], {
-    message: 'Tipo de documento debe ser: DNI, CEDULA, PASAPORTE, LICENCIA o TARJETA_DE_IDENTIDAD'
+  @IsEnum(DocumentType, {
+    message: 'Tipo de documento debe ser un valor válido'
   })
-  type_document?: string;
+  type_document?: DocumentType;
 
   @IsOptional()
   @IsString({ message: 'documentNumber debe ser string' })
@@ -234,7 +235,6 @@ export class CreateUserProfileConfigDto {
   address?: string;
 
   @IsOptional()
-  @IsDateString({}, { message: 'dateOfBirth debe ser una fecha válida (YYYY-MM-DD)' })
   dateOfBirth?: string;
 }
 
@@ -325,7 +325,16 @@ export class CreateUserDto {
   roleIds?: string[]; // IDs de los roles
 
   @IsOptional()
-  @IsBoolean()
+  @IsBoolean({ message: 'isActive debe ser un valor booleano' })
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true || value === 'on' || value === 1 || value === '1') {
+      return true;
+    }
+    if (value === 'false' || value === false || value === '' || value === 0 || value === '0' || value === null || value === undefined) {
+      return false;
+    }
+    return Boolean(value);
+  })
   isActive?: boolean = true;
 
   // Configuraciones opcionales que se pueden establecer en la creación
@@ -383,6 +392,15 @@ export class CreateUserSimpleDto {
   roleIds?: string[];
 
   @IsOptional()
-  @IsBoolean()
+  @IsBoolean({ message: 'isActive debe ser un valor booleano' })
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true || value === 'on' || value === 1 || value === '1') {
+      return true;
+    }
+    if (value === 'false' || value === false || value === '' || value === 0 || value === '0' || value === null || value === undefined) {
+      return false;
+    }
+    return Boolean(value);
+  })
   isActive?: boolean = true;
 }

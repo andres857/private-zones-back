@@ -9,7 +9,7 @@ import { FilterUsersDto, UserListResponseDto, UserStatsDto } from './dto/filter-
 import { Tenant } from 'src/tenants/entities/tenant.entity';
 import * as bcrypt from 'bcrypt';
 import { UserNotificationConfig } from './entities/user-notification-config.entity';
-import { UserProfileConfig } from './entities/user-profile-config.entity';
+import { UserProfileConfig, DocumentType } from './entities/user-profile-config.entity';
 
 @Injectable()
 export class UsersService {
@@ -112,45 +112,72 @@ export class UsersService {
     
     try {
       // Separar configuraciones y datos principales
-      const { notificationConfig, profileConfig, ...userData } = createUserDto;
+      const { notificationConfig, profileConfig, roleIds, ...userData } = createUserDto;
+
+      // 🔥 BUSCAR LOS ROLES POR IDS
+      let roles: Role[] = [];
+      if (roleIds && roleIds.length > 0) {
+        roles = await this.rolesRepository.find({
+          where: { id: In(roleIds) }
+        });
+        
+        if (roles.length !== roleIds.length) {
+          throw new BadRequestException('Uno o más roles no existen');
+        }
+      }
       
       // Hash de la contraseña
       const hashedPassword = await bcrypt.hash(userData.password, 10);
       
+      // Mapear profileConfig del DTO al tipo de la entidad
+      const mappedProfileConfig = profileConfig ? {
+        bio: profileConfig.bio || undefined,
+        phoneNumber: profileConfig.phoneNumber || undefined,
+        type_document: profileConfig.type_document as DocumentType || DocumentType.CC,
+        documentNumber: profileConfig.documentNumber || undefined,
+        organization: profileConfig.organization || undefined,
+        charge: profileConfig.charge || undefined,
+        gender: profileConfig.gender || undefined,
+        city: profileConfig.city || undefined,
+        country: profileConfig.country || undefined,
+        address: profileConfig.address || undefined,
+        dateOfBirth: profileConfig.dateOfBirth ? new Date(profileConfig.dateOfBirth) : undefined,
+      } : {
+        bio: undefined,
+        phoneNumber: undefined,
+        type_document: DocumentType.OTHER,
+        documentNumber: undefined,
+        organization: undefined,
+        charge: undefined,
+        gender: undefined,
+        city: undefined,
+        country: undefined,
+        address: undefined,
+        dateOfBirth: undefined,
+      };
+
+      const mappedNotificationConfig = notificationConfig || {
+        enableNotifications: true,
+        smsNotifications: false,
+        browserNotifications: false,
+        securityAlerts: true,
+        accountUpdates: false,
+        systemUpdates: true,
+        marketingEmails: false,
+        newsletterEmails: false,
+        reminders: true,
+        mentions: true,
+        directMessages: true,
+      };
+
       // Preparar datos del usuario
       const userToCreate = {
         ...userData,
         password: hashedPassword,
-        roles: roleEntities || [],
-        // configuracion de profile
-        profileConfig: profileConfig || {
-          bio: '',
-          phoneNumber: '',
-          type_document: '',
-          documentNumber: '',
-          organization: '',
-          charge: '',
-          gender: '',
-          city: '',
-          country: '',
-          address: '',
-          dateOfBirth: '',
-        },
-
-        // Configuración de notificaciones por defecto si no se proporciona
-        notificationConfig: notificationConfig || {
-          enableNotifications: true,
-          smsNotifications: false,
-          browserNotifications: false,
-          securityAlerts: true,
-          accountUpdates: false,
-          systemUpdates: true,
-          marketingEmails: false,
-          newsletterEmails: false,
-          reminders: true,
-          mentions: true,
-          directMessages: true
-        }
+        isActive: createUserDto.isActive !== undefined ? createUserDto.isActive : true,
+        roles: roles,
+        profileConfig: mappedProfileConfig,
+        notificationConfig: mappedNotificationConfig,
       };
       
       this.logger.log('Datos del usuario a crear:', {
@@ -158,12 +185,14 @@ export class UsersService {
         name: userToCreate.name,
         lastName: userToCreate.lastName,
         tenantId: userToCreate.tenantId,
-        rolesCount: userToCreate.roles.length
+        rolesCount: userToCreate.roles.length,
+        roleIds: userToCreate.roles.map(r => r.id)
       });
       
       // Crear y guardar usuario
       const user = this.usersRepository.create(userToCreate);
-      const savedUser = await this.usersRepository.save(user);
+      const savedUsers = await this.usersRepository.save(user);
+      const savedUser = Array.isArray(savedUsers) ? savedUsers[0] : savedUsers;
       
       this.logger.log(`Usuario creado exitosamente: ${savedUser.id}`);
       return savedUser;

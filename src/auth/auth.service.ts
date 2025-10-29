@@ -212,7 +212,7 @@ export class AuthService {
         isActive: true,
 
         profileConfig: {
-          type_document: registerDto.documentType,
+          type_document: registerDto.type_document,
           documentNumber: registerDto.document,
           organization: registerDto.organization,
           phoneNumber: registerDto.phone,
@@ -639,7 +639,7 @@ export class AuthService {
       errors.push('El documento es requerido');
     }
 
-    if (tenantConfig.requireDocumentType && !registerDto.documentType) {
+    if (tenantConfig.requireDocumentType && !registerDto.type_document) {
       errors.push('El tipo de documento es requerido');
     }
 

@@ -1,5 +1,6 @@
-import { IsEmpty, IsNotEmpty, IsString, MinLength, IsEmail, IsEnum, IsUUID, IsOptional } from "class-validator";
+import { IsEmpty, IsNotEmpty, IsString, MinLength, IsEmail, IsEnum, IsUUID, IsOptional, isEnum } from "class-validator";
 import { UserRole } from "src/common/enums/user-role.enum";
+import { DocumentType } from "src/users/entities/user-profile-config.entity";
 
 // src/auth/dto/auth.dto.ts
 export class LoginDto {
@@ -71,8 +72,11 @@ export class RegisterDto {
     phone: string;
 
     @IsOptional()
-    @IsString()
-    documentType: string;
+    @IsString({ message: 'type_document debe ser string' })
+    @IsEnum(DocumentType, {
+      message: 'Tipo de documento debe ser un valor válido'
+    })
+    type_document?: DocumentType;
   
     @IsNotEmpty()
     @IsEnum(UserRole, { message: 'Invalid role' })
