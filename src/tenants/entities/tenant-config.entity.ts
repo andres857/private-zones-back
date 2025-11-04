@@ -136,5 +136,8 @@ import {
     @Column({ default: false })
     requireAddress: boolean;
 
+    @Column({ type: 'text', nullable: true })
+    language: string | null; // ej: 'es', 'en', 'fr', 'pt-BR'
+
   }
   

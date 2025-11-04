@@ -1041,10 +1041,291 @@ export class TenantsService {
     }
   }
 
-  async update(id: string, updateTenantDto: UpdateTenantDto): Promise<Tenant> {
-    const tenant = await this.findOne(id);
-    Object.assign(tenant, updateTenantDto);
-    return await this.tenantRepository.save(tenant);
+  async update(id: string, dto: UpdateTenantDto): Promise<Tenant> {
+    // console.log("=== BACKEND UPDATE TENANT DEBUG ===");
+    // console.log("Tenant ID:", id);
+    // console.log("Received DTO:", JSON.stringify(dto, null, 2));
+
+    // Verificar que el tenant existe
+    const existingTenant = await this.tenantRepository.findOne({
+      where: { id },
+      relations: ['config', 'contactInfo', 'viewConfigs', 'componentConfigs']
+    });
+
+    if (!existingTenant) {
+      throw new NotFoundException({
+        error: 'TENANT_NOT_FOUND',
+        message: `No se encontró el tenant con id ${id}`,
+        field: 'id',
+        value: id
+      });
+    }
+
+    // Usar transaction para asegurar que todos los cambios se apliquen correctamente
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Validaciones de negocio si se proporcionan nuevos datos
+      if (dto.slug || dto.domain || dto.contactEmail) {
+        await this.validateTenantData(dto as any);
+      }
+
+      // Verificar duplicados (excluyendo el tenant actual)
+      if (dto.slug && dto.slug !== existingTenant.slug) {
+        const existingBySlug = await this.tenantRepository.findOne({ 
+          where: { slug: dto.slug } 
+        });
+
+        if (existingBySlug && existingBySlug.id !== id) {
+          throw new ConflictException({
+            error: 'SLUG_ALREADY_EXISTS',
+            message: `El slug "${dto.slug}" ya está en uso`,
+            field: 'slug',
+            value: dto.slug
+          });
+        }
+      }
+
+      if (dto.domain && dto.domain !== existingTenant.domain) {
+        const existingByDomain = await this.tenantRepository.findOne({ 
+          where: { domain: dto.domain } 
+        });
+
+        if (existingByDomain && existingByDomain.id !== id) {
+          throw new ConflictException({
+            error: 'DOMAIN_ALREADY_EXISTS',
+            message: `El dominio "${dto.domain}" ya está en uso`,
+            field: 'domain',
+            value: dto.domain
+          });
+        }
+      }
+
+      // Actualizar el tenant principal
+      if (dto.name !== undefined) existingTenant.name = dto.name;
+      if (dto.slug !== undefined) existingTenant.slug = dto.slug;
+      if (dto.domain !== undefined) existingTenant.domain = dto.domain;
+      if (dto.contactEmail !== undefined) existingTenant.contactEmail = dto.contactEmail;
+      if (dto.plan !== undefined) existingTenant.plan = dto.plan;
+
+      const updatedTenant = await queryRunner.manager.save(existingTenant);
+
+      // Actualizar o crear la configuración del tenant
+      let tenantConfig = existingTenant.config;
+      
+      if (!tenantConfig) {
+        tenantConfig = this.tenantConfigRepository.create({ tenant: updatedTenant });
+      }
+
+      console.log("tenantCOnfig:", tenantConfig);
+      console.log("dtoCondifg:", dto);
+
+
+      // Actualizar campos de configuración
+      if (dto.isActive !== undefined) tenantConfig.status = dto.isActive;
+
+      if (dto.config?.primaryColor || dto.primaryColor) {
+        tenantConfig.primaryColor = dto.config?.primaryColor || dto.primaryColor || '#0052cc';
+      }
+      if (dto.config?.secondaryColor || dto.secondaryColor) {
+        tenantConfig.secondaryColor = dto.config?.secondaryColor || dto.secondaryColor || '#ffffff';
+      }
+      if (dto.config?.maxUsers || dto.maxUsers) {
+        tenantConfig.maxUsers = dto.config?.maxUsers || dto.maxUsers || 5000;
+      }
+      if (dto.config?.storageLimit || dto.storageLimit) {
+        tenantConfig.storageLimit = dto.config?.storageLimit || dto.storageLimit || 150;
+      }
+      if (dto.timezone !== undefined) tenantConfig.timezone = dto.timezone;
+      if (dto.language !== undefined) tenantConfig.language = dto.language;
+      // if (dto.showProfile !== undefined) tenantConfig.showProfile = dto.showProfile;
+      if (dto.allowSelfRegistration !== undefined) tenantConfig.allowSelfRegistration = dto.allowSelfRegistration;
+      if (dto.allowGoogleLogin !== undefined) tenantConfig.allowGoogleLogin = dto.allowGoogleLogin;
+      if (dto.allowFacebookLogin !== undefined) tenantConfig.allowFacebookLogin = dto.allowFacebookLogin;
+      if (dto.loginMethod !== undefined) tenantConfig.loginMethod = dto.loginMethod as LoginMethod;
+      if (dto.allowValidationStatusUsers !== undefined) tenantConfig.allowValidationStatusUsers = dto.allowValidationStatusUsers;
+      if (dto.requireLastName !== undefined) tenantConfig.requireLastName = dto.requireLastName;
+      if (dto.requirePhone !== undefined) tenantConfig.requirePhone = dto.requirePhone;
+      if (dto.requireDocumentType !== undefined) tenantConfig.requireDocumentType = dto.requireDocumentType;
+      if (dto.requireDocument !== undefined) tenantConfig.requireDocument = dto.requireDocument;
+      if (dto.requireOrganization !== undefined) tenantConfig.requireOrganization = dto.requireOrganization;
+      if (dto.requirePosition !== undefined) tenantConfig.requirePosition = dto.requirePosition;
+      if (dto.requireGender !== undefined) tenantConfig.requireGender = dto.requireGender;
+      if (dto.requireCity !== undefined) tenantConfig.requireCity = dto.requireCity;
+      if (dto.requireAddress !== undefined) tenantConfig.requireAddress = dto.requireAddress;
+      if (dto.enableEmailNotifications !== undefined) tenantConfig.enableEmailNotifications = dto.enableEmailNotifications;
+      if (dto.faviconPath !== undefined) tenantConfig.faviconPath = dto.faviconPath;
+      if (dto.logoPath !== undefined) tenantConfig.logoPath = dto.logoPath;
+      if (dto.loginBackgroundPath !== undefined) tenantConfig.loginBackgroundPath = dto.loginBackgroundPath;
+      if (dto.iconPath !== undefined) tenantConfig.iconPath = dto.iconPath;
+
+      await queryRunner.manager.save(tenantConfig);
+
+      // Actualizar o crear la información de contacto
+      let tenantContactInfo = existingTenant.contactInfo;
+      
+      if (!tenantContactInfo) {
+        tenantContactInfo = this.tenantContactInfoRepository.create({ tenant: updatedTenant });
+      }
+
+      if (dto.contactPerson !== undefined) tenantContactInfo.contactPerson = dto.contactPerson;
+      if (dto.phone !== undefined) tenantContactInfo.phone = dto.phone;
+      if (dto.address !== undefined) tenantContactInfo.address = dto.address;
+      // if (dto.city !== undefined) tenantContactInfo.city = dto.city;
+      // if (dto.country !== undefined) tenantContactInfo.country = dto.country;
+      if (dto.contactEmail !== undefined) tenantContactInfo.contactEmail = dto.contactEmail;
+      if (dto.url_portal !== undefined) tenantContactInfo.url_portal = dto.url_portal;
+      if (dto.nit !== undefined) tenantContactInfo.nit = dto.nit;
+
+      await queryRunner.manager.save(tenantContactInfo);
+
+      // Actualizar configuraciones de vistas
+      const viewConfigs = [
+        { settings: dto.homeSettings, viewType: ViewType.HOME },
+        { settings: dto.videoCallSettings, viewType: ViewType.VIDEOCALLS },
+        { settings: dto.metricsSettings, viewType: ViewType.METRICS },
+        { settings: dto.groupsSettings, viewType: ViewType.CUSTOMERS },
+        { settings: dto.sectionsSettings, viewType: ViewType.SECTIONS },
+        { settings: dto.faqSettings, viewType: ViewType.FREQUENTLYASK }
+      ];
+
+      for (const { settings, viewType } of viewConfigs) {
+        if (settings) {
+          // Buscar configuración existente
+          let viewConfig: TenantViewConfig | null = await queryRunner.manager.findOne(TenantViewConfig, {
+            where: { tenant: { id: updatedTenant.id }, viewType: viewType }
+          });
+
+          const language = dto.language || tenantConfig.language || 'es-CO';
+          const languageCode = language.split('-')[0];
+          
+          let customTitle: string | undefined = undefined;
+          let customDescription: string | undefined = undefined;
+
+          if (settings.additionalSettings?.customTitles) {
+            customTitle = settings.additionalSettings.customTitles[languageCode] 
+              || settings.additionalSettings.customTitles['es'] 
+              || settings.additionalSettings.customTitles['en']
+              || undefined;
+          }
+
+          if (settings.additionalSettings?.customDescriptions) {
+            customDescription = settings.additionalSettings.customDescriptions[languageCode]
+              || settings.additionalSettings.customDescriptions['es']
+              || settings.additionalSettings.customDescriptions['en']
+              || undefined;
+          }
+
+          if (viewConfig) {
+            // Actualizar existente
+            if (customTitle !== undefined) viewConfig.title = customTitle;
+            if (customDescription !== undefined) viewConfig.description = customDescription;
+            if (settings.customBackground !== undefined) viewConfig.allowBackground = settings.customBackground;
+            if (settings.backgroundType !== undefined) viewConfig.backgroundType = settings.backgroundType;
+            if (settings.backgroundColor !== undefined) viewConfig.backgroundColor = settings.backgroundColor;
+            if (settings.backgroundImage !== undefined) viewConfig.backgroundImagePath = settings.backgroundImage;
+            if (settings.additionalSettings !== undefined) {
+              viewConfig.additionalSettings = settings.additionalSettings;
+            }
+          } else {
+            // Crear nuevo
+            const viewConfigData = {
+              tenant: updatedTenant,
+              viewType: viewType,
+              title: customTitle,
+              description: customDescription,
+              allowBackground: settings.customBackground ?? false,
+              backgroundType: settings.backgroundType || 'none',
+              backgroundColor: settings.backgroundColor,
+              backgroundImagePath: settings.backgroundImage,
+              additionalSettings: settings.additionalSettings || {}
+            };
+
+            viewConfig = this.tenantViewConfigRepository.create(viewConfigData);
+          }
+
+          console.log(`Updating/Creating view config for ${viewType}:`, JSON.stringify(viewConfig, null, 2));
+          await queryRunner.manager.save(viewConfig);
+        }
+      }
+
+      // Actualizar configuración del componente Navbar
+      if (dto.backgroundColorNavbar !== undefined || dto.textColorNavbar !== undefined || 
+          dto.logoNavbar !== undefined || dto.showNotifications !== undefined) {
+        
+        let navbarConfig: TenantComponentConfig | null = await queryRunner.manager.findOne(TenantComponentConfig, {
+          where: { tenant: { id: updatedTenant.id }, componentType: ComponentType.NAVBAR }
+        });
+
+        if (navbarConfig) {
+          // Actualizar existente
+          if (dto.backgroundColorNavbar !== undefined) navbarConfig.backgroundColor = dto.backgroundColorNavbar;
+          if (dto.textColorNavbar !== undefined) navbarConfig.textColor = dto.textColorNavbar;
+          if (dto.logoNavbar !== undefined) navbarConfig.logoUrl = dto.logoNavbar;
+          if (dto.showNotifications !== undefined) navbarConfig.showNotifications = dto.showNotifications;
+        } else {
+          // Crear nuevo
+          const navbarConfigData = {
+            tenant: updatedTenant,
+            componentType: ComponentType.NAVBAR,
+            componentName: 'Main Navbar',
+            isVisible: true,
+            backgroundColor: dto.backgroundColorNavbar,
+            textColor: dto.textColorNavbar,
+            logoUrl: dto.logoNavbar,
+            showNotifications: dto.showNotifications ?? true,
+            isActive: true
+          };
+
+          navbarConfig = this.tenantComponentConfigRepository.create(navbarConfigData);
+        }
+
+        await queryRunner.manager.save(navbarConfig);
+      }
+
+      // Commit de la transacción
+      await queryRunner.commitTransaction();
+
+      // Buscar el tenant actualizado con todas sus relaciones
+      const tenantWithRelations = await this.tenantRepository.findOne({
+        where: { id: updatedTenant.id },
+        relations: ['config', 'contactInfo', 'viewConfigs', 'componentConfigs']
+      });
+
+      if (!tenantWithRelations) {
+        throw new BadRequestException({
+          error: 'TENANT_NOT_FOUND_AFTER_UPDATE',
+          message: 'Error interno: No se pudo recuperar el tenant después de actualizarlo'
+        });
+      }
+
+      console.log("Tenant updated successfully:", updatedTenant.id);
+      return tenantWithRelations;
+      
+    } catch (error) {
+      // Rollback en caso de error
+      await queryRunner.rollbackTransaction();
+      console.log("Error in update method:", error);
+      
+      // Si ya es una excepción HTTP, la re-lanzamos
+      if (error instanceof ConflictException || 
+          error instanceof BadRequestException || 
+          error instanceof NotFoundException) {
+        throw error;
+      }
+      
+      // Para otros errores (como errores de BD)
+      throw new BadRequestException({
+        error: 'DATABASE_ERROR',
+        message: 'Error al actualizar el tenant en la base de datos',
+        details: error.message
+      });
+    } finally {
+      // Liberar la conexión
+      await queryRunner.release();
+    }
   }
 
   async remove(id: string): Promise<DeleteResult> {

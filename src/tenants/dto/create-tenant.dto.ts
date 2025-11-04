@@ -142,6 +142,9 @@ export class CreateTenantDto {
   showNotifications: boolean
 
   @IsOptional()
+  isActive: boolean;
+
+  @IsOptional()
   @ValidateNested()
   @Type(() => ViewSettingsDto)
   homeSettings: ViewSettingsDto;
