@@ -71,7 +71,7 @@ export class RegisterDto {
     @IsString()
     phone: string;
 
-    @IsOptional()
+    @IsNotEmpty()
     @IsString({ message: 'type_document debe ser string' })
     @IsEnum(DocumentType, {
       message: 'Tipo de documento debe ser un valor válido'
