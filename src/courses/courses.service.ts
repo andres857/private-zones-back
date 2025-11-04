@@ -539,12 +539,13 @@ export class CoursesService {
             if (course?.modules) {
                 course.modules = course.modules.filter(module => {
                     // Verificar que tiene items
-                    const hasItems = module.items && module.items.length > 0;
+                    // const hasItems = module.items && module.items.length > 0;
 
                     // Verificar que tiene configuración y está activa
                     const hasActiveConfig = module.configuration && module.configuration.isActive;
 
-                    return hasItems && hasActiveConfig;
+                    // return hasItems && hasActiveConfig;
+                    return hasActiveConfig;
                 });
             }
 
