@@ -17,6 +17,9 @@ export class ModulesService {
 
         @InjectRepository(CourseModule)
         private courseModuleRepository: Repository<CourseModule>,
+
+        @InjectRepository(CourseModuleConfig)
+        private courseModuleConfigRepository: Repository<CourseModuleConfig>,
     ) {}
 
     async getAll(options: GetAllModulesOptions): Promise<PaginatedModuleResponse>{
@@ -118,22 +121,27 @@ export class ModulesService {
                 throw new BadRequestException('El tenantId es requerido');
             }
 
+            console.log('Creando módulo para tenantId:', createModuleDto.tenantId);
+            console.log('Datos del módulo:', createModuleDto);
+
             const module = new CourseModule();
             module.title = createModuleDto.title.trim();
             module.description = createModuleDto.description?.trim() || '';
             module.courseId = createModuleDto.courseId;
             module.thumbnailImagePath = createModuleDto.thumbnailImagePath?.trim() || '';
 
+            const savedModule = await this.courseModuleRepository.save(module);
+
             const config = new CourseModuleConfig();
-            config.isActive = true;
-            config.courseModuleId = module.id;
-            config.order = createModuleDto.order || 999999;
-            config.approvalPercentage = createModuleDto.approvalPercentage || 80;
+            config.isActive = createModuleDto.configuration?.isActive ?? true;
+            config.courseModuleId = savedModule.id;
+            config.order = createModuleDto.configuration?.order || 999999;
+            config.approvalPercentage = createModuleDto.configuration?.approvalPercentage || 80;
             config.metadata = {};
 
             module.configuration = config;
 
-            const savedModule = await this.courseModuleRepository.save(module);
+            await this.courseModuleConfigRepository.save(config);
 
             return savedModule;
             
