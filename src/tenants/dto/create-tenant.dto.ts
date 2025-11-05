@@ -175,6 +175,11 @@ export class CreateTenantDto {
   faqSettings: ViewSettingsDto;
 
   @IsOptional()
+  @ValidateNested()
+  @Type(() => ViewSettingsDto)
+  loginRegisterSettings: ViewSettingsDto;
+
+  @IsOptional()
   config?: {
     status?: boolean;
     primaryColor?: string;
