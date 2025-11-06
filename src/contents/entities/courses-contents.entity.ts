@@ -1,6 +1,7 @@
 
+import { Courses } from 'src/courses/entities/courses.entity';
 import { Tenant } from 'src/tenants/entities/tenant.entity';
-import {Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn,DeleteDateColumn, ManyToOne, JoinColumn, Index} from 'typeorm';
+import {Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn,DeleteDateColumn, ManyToOne, JoinColumn, Index, ManyToMany} from 'typeorm';
 
 
 @Entity('contents')
@@ -43,4 +44,12 @@ export class ContentItem {
 
   @DeleteDateColumn()
   deletedAt: Date;
+
+  @ManyToMany(() => Courses, course => course.contents)
+  courses: Courses[];
+
+  // Método helper
+  belongsToCourse(courseId: string): boolean {
+    return this.courses?.some(course => course.id === courseId) || false;
+  }
 }

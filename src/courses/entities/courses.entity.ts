@@ -15,6 +15,7 @@ import { Section } from 'src/sections/entities/sections.entity';
 import { CourseModule } from './courses-modules.entity';
 import { ModuleItem } from './courses-modules-item.entity';
 import { CoursesUsers } from './courses-users.entity';
+import { ContentItem } from 'src/contents/entities/courses-contents.entity';
 
 @Entity('courses')
 export class Courses {
@@ -46,6 +47,14 @@ export class Courses {
 
   @DeleteDateColumn()
   deleted_at: Date;
+
+  @ManyToMany(() => ContentItem, content => content.courses)
+  @JoinTable({
+    name: 'course_contents', // tabla intermedia
+    joinColumn: { name: 'courseId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'contentId', referencedColumnName: 'id' }
+  })
+  contents: ContentItem[];
 
   @OneToMany(() => CoursesUsers, courseUser => courseUser.course)
   userConnections: CoursesUsers[];

@@ -319,60 +319,35 @@ export class ContentsService {
   async getAll(options: GetAllContentsOptions): Promise<PaginatedContentResponse> {
     const { courseId, search, contentType, page = 1, limit = 12, tenantId } = options;
 
-    // 📌 1. Buscar el curso con sus módulos e items
-    const course = await this.coursesRepository.findOne({
-      where: { id: courseId, tenantId },
-      relations: ['modules', 'modules.items'],
-    }) as Courses;
-
-    if (!course) {
-      throw new Error('Course not found');
-    }
-
-    // 📌 2. Extraer los referenceId de los items tipo CONTENT
-    const contentIds = course.getAllItems()
-      .filter(item => item.type === 'content')
-      .map(item => item.referenceId);
-
-    if (!contentIds.length) {
-      return {
-        data: [],
-        pagination: {
-          page,
-          limit,
-          total: 0,
-          totalPages: 0,
-          hasNext: false,
-          hasPrev: false,
-        },
-      };
-    }
-
-    // 📌 3. Construir query base para contar total
-    const baseQuery = this.contentRepository
+    // 📌 1. Construir query base con la relación
+    const queryBuilder = this.contentRepository
       .createQueryBuilder('content')
-      .where('content.id IN (:...ids)', { ids: contentIds })
+      .innerJoin('content.courses', 'course')
+      .where('course.id = :courseId', { courseId })
       .andWhere('content.tenantId = :tenantId', { tenantId });
 
+    // 📌 2. Aplicar filtros opcionales
     if (search) {
-      baseQuery.andWhere('LOWER(content.title) LIKE :search', { search: `%${search.toLowerCase()}%` });
+      queryBuilder.andWhere('LOWER(content.title) LIKE :search', { 
+        search: `%${search.toLowerCase()}%` 
+      });
     }
 
     if (contentType) {
-      baseQuery.andWhere('content.contentType = :contentType', { contentType });
+      queryBuilder.andWhere('content.contentType = :contentType', { contentType });
     }
 
-    // 📌 4. Obtener el total de registros
-    const total = await baseQuery.getCount();
+    // 📌 3. Obtener el total
+    const total = await queryBuilder.getCount();
 
-    // 📌 5. Aplicar paginación y obtener datos
-    const data = await baseQuery
+    // 📌 4. Aplicar paginación y obtener datos
+    const data = await queryBuilder
       .skip((page - 1) * limit)
       .take(limit)
       .orderBy('content.createdAt', 'DESC')
       .getMany();
 
-    // 📌 6. Calcular información de paginación
+    // 📌 5. Calcular paginación
     const totalPages = Math.ceil(total / limit);
 
     return {
@@ -419,6 +394,17 @@ export class ContentsService {
         throw new BadRequestException('El tenantId es requerido');
       }
 
+      const course = await this.coursesRepository.findOne({
+        where: { 
+          id: createContentDto.courseId, 
+          tenantId: createContentDto.tenantId 
+        }
+      });
+
+      if (!course) {
+        throw new NotFoundException('Course not found');
+      }
+
       // Crear el contenido
       const content = new ContentItem();
       content.title = createContentDto.title.trim();
@@ -426,6 +412,7 @@ export class ContentsService {
       content.contentType = createContentDto.type;
       content.contentUrl = createContentDto.contentUrl.trim();
       content.tenantId = createContentDto.tenantId;
+      content.courses = [course];
       content.metadata = createContentDto.metadata ?? {};
 
       // Guardar en la base de datos
