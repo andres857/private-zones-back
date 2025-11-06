@@ -173,7 +173,7 @@ export class UsersService {
       // Preparar datos del usuario
       const userToCreate = {
         ...userData,
-        password: hashedPassword,
+        password: userData.password,
         isActive: createUserDto.isActive !== undefined ? createUserDto.isActive : true,
         roles: roles,
         profileConfig: mappedProfileConfig,
