@@ -16,6 +16,8 @@ import { CourseModule } from './courses-modules.entity';
 import { ModuleItem } from './courses-modules-item.entity';
 import { CoursesUsers } from './courses-users.entity';
 import { ContentItem } from 'src/contents/entities/courses-contents.entity';
+import { ContentCategory } from 'src/contents/entities/courses-contents-categories.entity';
+import { Task } from './courses-tasks.entity';
 
 @Entity('courses')
 export class Courses {
@@ -76,6 +78,12 @@ export class Courses {
 
   @OneToMany(() => CoursesViewsConfig, viewConfig => viewConfig.course, { cascade: true })
   viewsConfig: CoursesViewsConfig[];
+
+  @OneToMany(() => ContentCategory, category => category.course)
+  contentCategories: ContentCategory[];
+
+  @OneToMany(() => Task, task => task.course)
+  tasks: Task[];
 
   // Helper para obtener todos los ítems del curso
   getAllItems(): ModuleItem[] {

@@ -10,11 +10,13 @@ import { Courses } from '../courses/entities/courses.entity';
 import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
 import { TenantsModule } from 'src/tenants/tenants.module';
 import { UsersProgressModule } from 'src/progress/user-progress.module';
+import { ContentCategory } from './entities/courses-contents-categories.entity';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       ContentItem,
+      ContentCategory,
       ModuleItem,
       CourseModule,
       Courses,

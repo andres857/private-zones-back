@@ -19,6 +19,7 @@ import { Forum } from 'src/forums/entities/forum.entity';
 import { Task } from 'src/courses/entities/courses-tasks.entity';
 import { Quiz } from 'src/courses/entities/courses-quizzes.entity';
 import { Survey } from 'src/courses/entities/courses-surveys.entity';
+import { ContentCategory } from 'src/contents/entities/courses-contents-categories.entity';
 
 @Entity()
 export class Tenant {
@@ -92,4 +93,6 @@ export class Tenant {
   @OneToMany(() => Survey, survey => survey.tenant)
   surveys: Survey[];
 
+  @OneToMany(() => ContentCategory, category => category.tenant)
+  contentCategories: ContentCategory[];
 }

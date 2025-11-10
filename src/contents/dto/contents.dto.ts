@@ -4,7 +4,7 @@ import { ContentType } from "src/common/enums/contents.enum";
 
 
 export class CreateContentDto {
-    @IsNotEmpty({ message: 'El nombre del curso es requerido' })
+    @IsNotEmpty({ message: 'El nombre del contenido es requerido' })
     @IsString({ message: 'El nombre debe ser una cadena de texto' })
     @Length(2, 100, { message: 'El nombre debe tener entre 2 y 100 caracteres' })
     title: string;
@@ -34,4 +34,29 @@ export class CreateContentDto {
     @IsNotEmpty({ message: 'El tenantId es requerido' })
     @IsString({ message: 'El tenantId debe ser una cadena de texto' })
     tenantId: string;
+}
+
+
+export class CreateCategoryDto {
+    @IsNotEmpty({ message: 'El nombre del curso es requerido' })
+    @IsString({ message: 'El nombre debe ser una cadena de texto' })
+    @Length(2, 100, { message: 'El nombre debe tener entre 2 y 100 caracteres' })
+    title: string;
+
+    @IsOptional()
+    description?: string;
+
+    @IsNotEmpty({ message: 'El ID del curso es requerido' })
+    @IsString({ message: 'El ID del curso debe ser una cadena de texto'})
+    courseId: string;
+
+    @IsOptional()
+    metadata?: Record<string, any>;
+
+    @IsNotEmpty({ message: 'El tenantId es requerido' })
+    @IsString({ message: 'El tenantId debe ser una cadena de texto' })
+    tenantId: string;
+
+    @IsOptional()
+    order?: number;
 }

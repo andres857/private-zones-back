@@ -58,6 +58,7 @@ import { UserActivityLog } from './users/entities/user-activity-log.entity';
 import { ContentsModule } from './contents/contents.module';
 import { ModulesModule } from './modules/modules.module';
 import { ForumsModule } from './forums/forums.module';
+import { ContentCategory } from './contents/entities/courses-contents-categories.entity';
 
 
 @Module({
@@ -73,7 +74,7 @@ import { ForumsModule } from './forums/forums.module';
       database: process.env.DATABASE_NAME || 'net_db',
       username: process.env.DATABASE_USER || 'postgres',
       password: process.env.DATABASE_PASSWORD || 'postgres',
-      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, TenantViewConfig, TenantComponentConfig, Subscription, UserConfig, UserProfileConfig, UserNotificationConfig, Section, Courses, CourseConfiguration, CourseTranslation, CoursesViewsConfig, Permission, CourseModule, CourseModuleConfig, ModuleItem, ContentItem, Forum, Task, TaskConfig, Quiz, Survey, CoursesUsers, UserCourseProgress, UserModuleProgress, UserItemProgress, UserSession, UserActivityLog, ForumComment, ForumReaction, CommentReaction],
+      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, TenantViewConfig, TenantComponentConfig, Subscription, UserConfig, UserProfileConfig, UserNotificationConfig, Section, Courses, CourseConfiguration, CourseTranslation, CoursesViewsConfig, Permission, CourseModule, CourseModuleConfig, ModuleItem, ContentItem, Forum, Task, TaskConfig, Quiz, Survey, CoursesUsers, UserCourseProgress, UserModuleProgress, UserItemProgress, UserSession, UserActivityLog, ForumComment, ForumReaction, CommentReaction, ContentCategory],
       synchronize: true,
     }),
     UsersModule,
@@ -89,7 +90,7 @@ import { ForumsModule } from './forums/forums.module';
     UsersProgressModule,
     ContentsModule,
     ModulesModule,
-    ForumsModule
+    ForumsModule,
   ],
   controllers: [AppController],
   providers: [AppService, EventsGateway],

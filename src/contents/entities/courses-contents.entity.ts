@@ -2,6 +2,7 @@
 import { Courses } from 'src/courses/entities/courses.entity';
 import { Tenant } from 'src/tenants/entities/tenant.entity';
 import {Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn,DeleteDateColumn, ManyToOne, JoinColumn, Index, ManyToMany} from 'typeorm';
+import { ContentCategory } from './courses-contents-categories.entity';
 
 
 @Entity('contents')
@@ -47,6 +48,9 @@ export class ContentItem {
 
   @ManyToMany(() => Courses, course => course.contents)
   courses: Courses[];
+
+  @ManyToMany(() => ContentCategory, category => category.contents)
+  categories: ContentCategory[];
 
   // Método helper
   belongsToCourse(courseId: string): boolean {

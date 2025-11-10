@@ -1,11 +1,12 @@
 // src/contents/contents.controller.ts
-import { Controller, Get, Param, Query, UseGuards, Req, UseInterceptors, Post, Body, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards, Req, UseInterceptors, Post, Body, DefaultValuePipe, ParseIntPipe, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { ContentsService } from './contents.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Request } from 'express';
 import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
 import { AuthenticatedRequest } from 'src/common/enums/types/request.types';
 import { UserProgressService } from '../progress/services/user-progress.service';
+import { CreateCategoryDto } from './dto/contents.dto';
 
 export interface GetContentOptions {
     includeCourse?: boolean;
@@ -141,6 +142,38 @@ export class ContentsController {
         } catch (error) {
             // Los errores ya son manejados en el service, simplemente los re-lanzamos
             throw error;
+        }
+    }
+
+    @Post('/create/category')
+    async createCategory(@Req() request: AuthenticatedRequest, @Body() body: CreateCategoryDto) {
+        try {
+            const savedCategory = await this.contentsService.createCategory(body);
+
+            // Retornar respuesta exitosa
+            return {
+                success: true,
+                message: 'Categoría creada exitosamente',
+                data: {
+                    id: savedCategory.id,
+                    title: savedCategory.title,
+                    description: savedCategory.description,
+                    order: savedCategory.order,
+                    metadata: savedCategory.metadata,
+                    createdAt: savedCategory.createdAt
+                }
+            };
+        } catch (error) {
+            // Si es BadRequestException o InternalServerErrorException, dejar que NestJS lo maneje
+            if (error instanceof BadRequestException || error instanceof InternalServerErrorException) {
+                throw error;
+            }
+
+            // Log del error
+            console.error('Error en endpoint createCategory:', error);
+
+            // Retornar error genérico
+            throw new InternalServerErrorException('Error al procesar la solicitud');
         }
     }
 }

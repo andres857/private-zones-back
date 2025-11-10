@@ -1,5 +1,5 @@
 
-import { Body, Controller, Get, Post, UseInterceptors, Headers, Param, UseGuards, Req, Query, DefaultValuePipe, ParseIntPipe, HttpException, HttpStatus } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseInterceptors, Headers, Param, UseGuards, Req, Query, DefaultValuePipe, ParseIntPipe, HttpException, HttpStatus, BadRequestException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { CoursesService } from './courses.service';
 import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
@@ -8,6 +8,7 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { Request } from 'express';
 import { AuthenticatedRequest } from 'src/common/enums/types/request.types';
 import { AuthGuard } from '@nestjs/passport';
+import { CreateTaskDto } from './dto/create-task.dto';
 
 @Controller('courses')
 @UseGuards(AuthGuard('jwt'))
@@ -143,4 +144,59 @@ export class CoursesController {
     //     message: 'No se ha proporcionado un parámetro ID. Uso correcto: /courses/{id}'
     //   };
     // }
+
+    @Post('/create/task')
+    async createTask(
+        @Req() request: AuthenticatedRequest, 
+        @Body() body: CreateTaskDto
+    ) {
+        try {
+            // Opcional: Asignar automáticamente el createdBy desde el usuario autenticado
+            if (request.user?.id && !body.createdBy) {
+                body.createdBy = request.user.id;
+            }
+
+            const savedTask = await this.coursesService.createTask(body);
+
+            // Retornar respuesta exitosa
+            return {
+                success: true,
+                message: 'Tarea creada exitosamente',
+                data: {
+                id: savedTask.id,
+                title: savedTask.title,
+                description: savedTask.description,
+                instructions: savedTask.instructions,
+                status: savedTask.status,
+                courseId: savedTask.courseId,
+                startDate: savedTask.startDate,
+                endDate: savedTask.endDate,
+                lateSubmissionDate: savedTask.lateSubmissionDate,
+                maxPoints: savedTask.maxPoints,
+                maxFileUploads: savedTask.maxFileUploads,
+                maxFileSize: savedTask.maxFileSize,
+                allowedFileTypes: savedTask.allowedFileTypes,
+                order: savedTask.order,
+                configuration: savedTask.configuration,
+                createdAt: savedTask.createdAt
+                }
+            };
+        } catch (error) {
+            // Si es BadRequestException, NotFoundException o InternalServerErrorException, 
+            // dejar que NestJS lo maneje
+            if (
+                error instanceof BadRequestException || 
+                error instanceof NotFoundException ||
+                error instanceof InternalServerErrorException
+            ) {
+                throw error;
+            }
+
+            // Log del error
+            console.error('Error en endpoint createTask:', error);
+
+            // Retornar error genérico
+            throw new InternalServerErrorException('Error al procesar la solicitud');
+        }
+    }
 }

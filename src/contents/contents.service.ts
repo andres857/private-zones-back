@@ -9,8 +9,9 @@ import { Courses } from '../courses/entities/courses.entity';
 import { UserItemProgress } from '../progress/entities/user-item-progress.entity';
 import { GetContentOptions } from './contents.controller';
 import { GetAllContentsOptions, PaginatedContentResponse } from './interfaces/contents.interface';
-import { CreateContentDto } from './dto/contents.dto';
+import { CreateCategoryDto, CreateContentDto } from './dto/contents.dto';
 import { ContentType } from 'src/common/enums/contents.enum';
+import { ContentCategory } from './entities/courses-contents-categories.entity';
 
 @Injectable()
 export class ContentsService {
@@ -25,6 +26,8 @@ export class ContentsService {
     private coursesRepository: Repository<Courses>,
     @InjectRepository(UserItemProgress)
     private userItemProgressRepository: Repository<UserItemProgress>,
+    @InjectRepository(ContentCategory)
+    private contentCategory: Repository<ContentCategory>
   ) {}
 
   async getById(
@@ -429,6 +432,49 @@ export class ContentsService {
       // Log del error para debugging
       console.error('Error creando contenido:', error);
       throw new InternalServerErrorException('Error interno creando el contenido');
+    }
+  }
+
+  async createCategory(createCategoryDto: CreateCategoryDto): Promise<ContentCategory> {
+    try {
+      // Validar campos requeridos
+      if (!createCategoryDto.title?.trim()) {
+        throw new BadRequestException('El título es requerido');
+      }
+
+      if (!createCategoryDto.tenantId) {
+        throw new BadRequestException('El tenantId es requerido');
+      }
+
+      if (!createCategoryDto.courseId) {
+        throw new BadRequestException('El courseId es requerido');
+      }
+
+      // Crear la categoría
+      const category = new ContentCategory();
+      category.title = createCategoryDto.title.trim();
+      category.description = createCategoryDto.description?.trim() ?? '';
+      category.order = createCategoryDto.order ?? 0;
+      category.tenantId = createCategoryDto.tenantId;
+      category.courseId = createCategoryDto.courseId;
+      category.metadata = createCategoryDto.metadata ?? {};
+
+      const savedCategory = await this.contentCategory.save(category);
+      
+      return savedCategory;
+    } catch (error) {
+      // Si es una excepción de BadRequest, la relanzamos
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      // Log del error para debugging
+      console.error('Error al crear categoría:', error);
+
+      // Lanzar excepción genérica
+      throw new InternalServerErrorException(
+        'Error al crear la categoría. Por favor, inténtalo de nuevo.'
+      );
     }
   }
 }
