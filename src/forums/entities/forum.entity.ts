@@ -15,6 +15,7 @@ import { User } from 'src/users/entities/user.entity';
 import { Tenant } from 'src/tenants/entities/tenant.entity';
 import { ForumComment } from './forum-comment.entity';
 import { ForumReaction } from './forum-reaction.entity';
+import { Courses } from 'src/courses/entities/courses.entity';
 
 @Entity('forums')
 export class Forum {
@@ -64,6 +65,14 @@ export class Forum {
   @Column()
   @Index()
   authorId: string;
+
+  @ManyToOne(() => Courses, course => course.forums, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'courseId' })
+  course: Courses;
+
+  @Column()
+  @Index()
+  courseId: string;
 
   @OneToMany(() => ForumComment, (comment) => comment.forum, {
     cascade: true,
