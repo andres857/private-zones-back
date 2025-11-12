@@ -38,11 +38,44 @@ export class ContentsService {
   ) {
     // 1. Obtener el contenido
     const content = await this.contentRepository.findOne({
-      where: { id: contentId, tenantId }
+      where: { id: contentId, tenantId },
+      relations: ['courses', 'courses.configuration', 'courses.translations']
     });
 
     if (!content) {
       throw new NotFoundException('Content not found');
+    }
+
+    // Si NO viene desde módulo, retornar solo la info básica del contenido
+    if (!options.fromModule) {
+      // Obtener el primer curso si existe (o podrías usar otra lógica)
+      const firstCourse = content.courses && content.courses.length > 0 ? content.courses[0] : null;
+
+      return {
+          id: content.id,
+          title: content.title,
+          description: content.description || '',
+          content: {
+              type: content.contentType,
+              contentUrl: content.contentUrl,
+              metadata: this.processContentMetadata(content.contentType, content.metadata)
+          },
+          metadata: {
+              duration: this.getDurationFromMetadata(content.metadata),
+              difficulty: this.getDifficultyFromMetadata(content.metadata),
+              tags: this.getTagsFromMetadata(content.metadata),
+              createdAt: content.createdAt.toISOString(),
+              updatedAt: content.updatedAt.toISOString()
+          },
+          // Solo incluir course si existe
+          ...(firstCourse && {
+              course: {
+                  id: firstCourse.id,
+                  title: firstCourse.getTranslatedTitle('es'),
+                  colorTitle: firstCourse.configuration?.colorTitle || '#000000'
+              }
+          })
+      };
     }
 
     // 2. Buscar el ModuleItem que referencia este contenido

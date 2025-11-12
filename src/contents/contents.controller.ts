@@ -12,6 +12,7 @@ export interface GetContentOptions {
     includeCourse?: boolean;
     includeModule?: boolean;
     includeNavigation?: boolean;
+    fromModule?: boolean;
 }
 
 @Controller('contents')
@@ -59,6 +60,7 @@ export class ContentsController {
     async getById(
         @Req() request: AuthenticatedRequest,
         @Param('contentId') contentId: string,
+        @Query('fromModule') fromModule?: string,
         @Query('includeCourse') includeCourse?: string,
         @Query('includeModule') includeModule?: string,
         @Query('includeNavigation') includeNavigation?: string,
@@ -74,13 +76,18 @@ export class ContentsController {
             throw new Error('Tenant not validated');
         }
 
+        const isFromModule = fromModule === 'true';
+
         const options: GetContentOptions = {
             includeCourse: includeCourse === 'true',
             includeModule: includeModule === 'true',
-            includeNavigation: includeNavigation === 'true'
+            includeNavigation: includeNavigation === 'true',
+            fromModule: isFromModule
         };
 
-        await this.progressService.startItemProgress(contentId, userId);
+        if(isFromModule){
+            await this.progressService.startItemProgress(contentId, userId);
+        }
 
         return await this.contentsService.getById(contentId, options, userId, tenantId);
     }
