@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, ConflictException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DeleteResult, In, DeepPartial, MoreThanOrEqual, Not } from 'typeorm';
 import { Role } from 'src/roles/entities/role.entity';
@@ -466,5 +466,27 @@ export class UsersService {
       id: tenant.id,
       name: tenant.name
     }));
+  }
+
+  async changePassword(userId: string, oldPassword: string, newPassword: string): Promise<void> {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    // Verificar contraseña actual
+    const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
+    
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('La contraseña actual es incorrecta');
+    }
+
+    // Hashear nueva contraseña
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    // Actualizar contraseña
+    user.password = hashedPassword;
+    await this.usersRepository.save(user);
   }
 } 
