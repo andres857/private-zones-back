@@ -43,6 +43,7 @@ export class ForumsService {
             newForum.viewCount = createForumDto.viewCount || 0;
             newForum.authorId = user.id;
             newForum.tenantId = createForumDto.tenantId;
+            newForum.courseId = createForumDto.courseId;
 
             const savedForum = await this.forumRepository.save(newForum);
 
