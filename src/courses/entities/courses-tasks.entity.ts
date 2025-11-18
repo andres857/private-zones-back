@@ -86,7 +86,7 @@ export class Task {
     allowMultipleSubmissions: boolean; // Permitir múltiples intentos
 
     @Column({ type: 'int', nullable: true })
-    maxSubmissionAttempts: number; // Número máximo de intentos (null = ilimitado)
+    maxSubmissionAttempts: number | null; // Número máximo de intentos (null = ilimitado)
 
     @Column({ default: true })
     requireSubmission: boolean; // Si es obligatoria o no

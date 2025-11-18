@@ -1432,8 +1432,8 @@ export class CoursesService {
             // Verificar que el curso existe
             const course = await this.courseRepository.findOne({
                 where: { 
-                id: createTaskDto.courseId,
-                tenantId: createTaskDto.tenantId 
+                    id: createTaskDto.courseId,
+                    tenantId: createTaskDto.tenantId 
                 }
             });
 
@@ -1467,13 +1467,13 @@ export class CoursesService {
             if (createTaskDto.allowedFileTypes?.length) {
                 const validExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'jpg', 'jpeg', 'png', 'gif', 'txt', 'zip', 'rar'];
                 const invalidTypes = createTaskDto.allowedFileTypes.filter(
-                type => !validExtensions.includes(type.toLowerCase())
+                    type => !validExtensions.includes(type.toLowerCase())
                 );
                 
                 if (invalidTypes.length > 0) {
-                throw new BadRequestException(
-                    `Tipos de archivo inválidos: ${invalidTypes.join(', ')}`
-                );
+                    throw new BadRequestException(
+                        `Tipos de archivo inválidos: ${invalidTypes.join(', ')}`
+                    );
                 }
             }
 
@@ -1484,34 +1484,34 @@ export class CoursesService {
             task.instructions = createTaskDto.instructions?.trim() || '';
             task.courseId = createTaskDto.courseId;
             task.tenantId = createTaskDto.tenantId;
-            task.createdBy = createTaskDto.createdBy || null;
+            task.createdBy = createTaskDto.createdBy || '';
             task.status = createTaskDto.status || TaskStatus.DRAFT;
             
             // Fechas
-            task.startDate = startDate;
-            task.endDate = endDate;
-            task.lateSubmissionDate = lateSubmissionDate;
+            task.startDate = startDate ?? new Date();
+            task.endDate = endDate ?? new Date((startDate ?? new Date()).getTime() + 7 * 24 * 60 * 60 * 1000);
+            task.lateSubmissionDate = lateSubmissionDate ?? (endDate ? new Date(endDate.getTime() + 3 * 24 * 60 * 60 * 1000) : new Date()); // 3 días después
 
             // Calificación
-            task.maxPoints = createTaskDto.maxPoints ?? null;
+            task.maxPoints = createTaskDto.maxPoints ?? 100;
             task.lateSubmissionPenalty = createTaskDto.lateSubmissionPenalty ?? 0;
 
             // Configuración de archivos
-            task.maxFileUploads = createTaskDto.maxFileUploads ?? 5;
+            task.maxFileUploads = createTaskDto.maxFileUploads ?? 3;
             task.maxFileSize = createTaskDto.maxFileSize ?? 10;
             task.allowedFileTypes = createTaskDto.allowedFileTypes ?? ['pdf', 'doc', 'docx', 'jpg', 'png'];
 
             // Configuración de envíos
             task.allowMultipleSubmissions = createTaskDto.allowMultipleSubmissions ?? true;
             task.maxSubmissionAttempts = createTaskDto.maxSubmissionAttempts ?? null;
-            task.requireSubmission = createTaskDto.requireSubmission ?? true;
+            task.requireSubmission = createTaskDto.requireSubmission ?? true; // Si la tarea requiere obligatoriamente un envío
             task.enablePeerReview = createTaskDto.enablePeerReview ?? false;
 
             // Visualización
-            task.thumbnailImagePath = createTaskDto.thumbnailImagePath ?? null;
+            task.thumbnailImagePath = createTaskDto.thumbnailImagePath ?? '';
             task.order = createTaskDto.order ?? 0;
-            task.showGradeToStudent = createTaskDto.showGradeToStudent ?? true;
-            task.showFeedbackToStudent = createTaskDto.showFeedbackToStudent ?? true;
+            task.showGradeToStudent = createTaskDto.showGradeToStudent ?? true; // Si muestra la calificación al estudiante
+            task.showFeedbackToStudent = createTaskDto.showFeedbackToStudent ?? true; // Si muestra retroalimentación al estudiante
             task.notifyOnSubmission = createTaskDto.notifyOnSubmission ?? false;
 
             task.metadata = createTaskDto.metadata ?? {};
@@ -1526,30 +1526,30 @@ export class CoursesService {
                 
                 // Asignar todas las propiedades de configuración
                 Object.assign(taskConfig, {
-                isActive: createTaskDto.configuration.isActive ?? true,
-                enableSupportResources: createTaskDto.configuration.enableSupportResources ?? false,
-                showResourcesBeforeSubmission: createTaskDto.configuration.showResourcesBeforeSubmission ?? false,
-                enableSelfAssessment: createTaskDto.configuration.enableSelfAssessment ?? false,
-                requireSelfAssessmentBeforeSubmit: createTaskDto.configuration.requireSelfAssessmentBeforeSubmit ?? false,
-                enableFileUpload: createTaskDto.configuration.enableFileUpload ?? true,
-                requireFileUpload: createTaskDto.configuration.requireFileUpload ?? false,
-                enableTextSubmission: createTaskDto.configuration.enableTextSubmission ?? false,
-                requireTextSubmission: createTaskDto.configuration.requireTextSubmission ?? false,
-                showToStudentsBeforeStart: createTaskDto.configuration.showToStudentsBeforeStart ?? true,
-                sendReminderBeforeDue: createTaskDto.configuration.sendReminderBeforeDue ?? true,
-                reminderHoursBeforeDue: createTaskDto.configuration.reminderHoursBeforeDue ?? 24,
-                notifyOnGrade: createTaskDto.configuration.notifyOnGrade ?? true,
-                autoGrade: createTaskDto.configuration.autoGrade ?? false,
-                requireGradeComment: createTaskDto.configuration.requireGradeComment ?? false,
-                enableGradeRubric: createTaskDto.configuration.enableGradeRubric ?? false,
-                rubricData: createTaskDto.configuration.rubricData ?? null,
-                showOtherSubmissions: createTaskDto.configuration.showOtherSubmissions ?? false,
-                anonymizeSubmissions: createTaskDto.configuration.anonymizeSubmissions ?? false,
-                enableGroupSubmission: createTaskDto.configuration.enableGroupSubmission ?? false,
-                maxGroupSize: createTaskDto.configuration.maxGroupSize ?? null,
-                enableVersionControl: createTaskDto.configuration.enableVersionControl ?? false,
-                lockAfterGrade: createTaskDto.configuration.lockAfterGrade ?? false,
-                metadata: createTaskDto.configuration.metadata ?? {},
+                    isActive: createTaskDto.configuration.isActive ?? true,
+                    enableSupportResources: createTaskDto.configuration.enableSupportResources ?? false,
+                    showResourcesBeforeSubmission: createTaskDto.configuration.showResourcesBeforeSubmission ?? false,
+                    enableSelfAssessment: createTaskDto.configuration.enableSelfAssessment ?? false,
+                    requireSelfAssessmentBeforeSubmit: createTaskDto.configuration.requireSelfAssessmentBeforeSubmit ?? false,
+                    enableFileUpload: createTaskDto.configuration.enableFileUpload ?? true,
+                    requireFileUpload: createTaskDto.configuration.requireFileUpload ?? false,
+                    enableTextSubmission: createTaskDto.configuration.enableTextSubmission ?? false,
+                    requireTextSubmission: createTaskDto.configuration.requireTextSubmission ?? false,
+                    showToStudentsBeforeStart: createTaskDto.configuration.showToStudentsBeforeStart ?? true,
+                    sendReminderBeforeDue: createTaskDto.configuration.sendReminderBeforeDue ?? true,
+                    reminderHoursBeforeDue: createTaskDto.configuration.reminderHoursBeforeDue ?? 24,
+                    notifyOnGrade: createTaskDto.configuration.notifyOnGrade ?? true,
+                    autoGrade: createTaskDto.configuration.autoGrade ?? false,
+                    requireGradeComment: createTaskDto.configuration.requireGradeComment ?? false,
+                    enableGradeRubric: createTaskDto.configuration.enableGradeRubric ?? false,
+                    rubricData: createTaskDto.configuration.rubricData ?? null,
+                    showOtherSubmissions: createTaskDto.configuration.showOtherSubmissions ?? false,
+                    anonymizeSubmissions: createTaskDto.configuration.anonymizeSubmissions ?? false,
+                    enableGroupSubmission: createTaskDto.configuration.enableGroupSubmission ?? false,
+                    maxGroupSize: createTaskDto.configuration.maxGroupSize ?? null,
+                    enableVersionControl: createTaskDto.configuration.enableVersionControl ?? false,
+                    lockAfterGrade: createTaskDto.configuration.lockAfterGrade ?? false,
+                    metadata: createTaskDto.configuration.metadata ?? {},
                 });
 
                 await this.taskConfigRepository.save(taskConfig);
@@ -1569,6 +1569,12 @@ export class CoursesService {
                 where: { id: savedTask.id },
                 relations: ['configuration', 'course', 'creator']
             });
+
+            if (!taskWithRelations) {
+                throw new InternalServerErrorException(
+                    'Error al recuperar la tarea creada'
+                );
+            }
 
             return taskWithRelations;
 
