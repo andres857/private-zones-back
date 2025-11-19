@@ -182,6 +182,21 @@ export class CreateCourseDto {
     isActive?: boolean;
 
     @IsOptional()
+    instructor?: string;
+
+    @IsOptional()
+    duration?: string;
+
+    @IsOptional()
+    level?: string;
+
+    @IsOptional()
+    category?: string;
+
+    @IsOptional()
+    price?: number;
+
+    @IsOptional()
     created_at?: string;
 
     @IsOptional()

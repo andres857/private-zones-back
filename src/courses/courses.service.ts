@@ -10,7 +10,7 @@ import { CourseTranslationDto } from './dto/course-translation.dto';
 import { ModuleItem, ModuleItemType } from './entities/courses-modules-item.entity';
 import { ContentItem } from '../contents/entities/courses-contents.entity';
 import { Forum } from '../forums/entities/forum.entity';
-import { Task, TaskStatus } from './entities/courses-tasks.entity';
+import { Task, TaskStatus } from '../tasks/entities/courses-tasks.entity';
 import { Quiz } from './entities/courses-quizzes.entity';
 import { Survey } from './entities/courses-surveys.entity';
 import { UserCourseProgress, CourseStatus } from 'src/progress/entities/user-course-progress.entity';
@@ -20,13 +20,16 @@ import { CourseModule } from './entities/courses-modules.entity';
 import { FindAllCoursesParams, PaginatedCoursesResponse } from './interfaces/courses.interface';
 import { CourseConfiguration } from './entities/courses-config.entity';
 import { CreateTaskDto } from './dto/create-task.dto';
-import { TaskConfig } from './entities/courses-tasks-config.entity';
+import { TaskConfig } from '../tasks/entities/courses-tasks-config.entity';
 
 @Injectable()
 export class CoursesService {
     constructor(
         @InjectRepository(Courses)
         private readonly courseRepository: Repository<Courses>,
+
+        @InjectRepository(CourseTranslation)
+        private translationRepository: Repository<CourseTranslation>,
 
         private readonly tenantsService: TenantsService,
 
@@ -236,6 +239,118 @@ export class CoursesService {
             console.error('Error completo:', error);
             throw new BadRequestException(`Error al crear el curso: ${error.message}`);
         }
+    }
+
+    async update(id: string, updateCourseDto: CreateCourseDto): Promise<Courses> {
+        try {
+            // 1. Buscar el curso con sus relaciones
+            const course = await this.courseRepository.findOne({
+                where: { id },
+                relations: ['configuration', 'translations', 'tenant']
+            });
+
+            if (!course) {
+                throw new NotFoundException(`Curso con ID ${id} no encontrado`);
+            }
+
+            console.log('Curso encontrado para actualizar:', course.id);
+
+            // 2. Preparar datos del curso (sin configuración ni traducciones)
+            const courseData = this.prepareCourseData(updateCourseDto);
+            
+            // 3. Si se proporciona un nuevo título, regenerar el slug
+            // if (updateCourseDto.title && updateCourseDto.title !== course.getTranslatedTitle()) {
+            //     course.slug = await this.generateUniqueSlug(updateCourseDto, course.tenantId, id);
+            //     console.log('Nuevo slug generado:', course.slug);
+            // }
+
+            // 4. Actualizar propiedades del curso
+            Object.assign(course, courseData);
+
+            // 5. Manejar traducciones
+            if (updateCourseDto.translations) {
+                // Eliminar traducciones antiguas
+                if (course.translations && course.translations.length > 0) {
+                    await this.translationRepository.remove(course.translations);
+                }
+                // Crear nuevas traducciones
+                course.translations = await this.createTranslations(updateCourseDto.translations);
+            }
+
+            // 6. Manejar configuración
+            if (course.configuration) {
+                // Si ya existe configuración, actualizarla
+                const configData = this.prepareConfigurationData(updateCourseDto);
+                Object.assign(course.configuration, configData);
+            } else {
+                // Si no existe, crear una nueva
+                course.configuration = this.prepareCourseConfiguration(updateCourseDto, course.id);
+            }
+
+            // 7. Guardar todo (cascade se encarga de configuration y translations)
+            const updatedCourse = await this.courseRepository.save(course);
+            
+            console.log('Curso actualizado exitosamente:', updatedCourse.id);
+            
+            return updatedCourse;
+
+        } catch (error) {
+            console.error('Error al actualizar el curso:', error);
+            
+            if (error instanceof NotFoundException) {
+                throw error;
+            }
+            
+            throw new BadRequestException(`Error al actualizar el curso: ${error.message}`);
+        }
+    }
+
+    // Método helper para preparar solo los datos de configuración
+    private prepareConfigurationData(dto: CreateCourseDto): Partial<CourseConfiguration> {
+        const configData: any = {};
+
+        // Mapeo de propiedades del DTO a la configuración
+        if (dto.visibility !== undefined) configData.visibility = dto.visibility;
+        if (dto.status !== undefined) configData.status = dto.status;
+        if (dto.acronym !== undefined) configData.acronym = dto.acronym;
+        if (dto.code !== undefined) configData.code = dto.code;
+        if (dto.category !== undefined) configData.category = dto.category;
+        if (dto.subcategory !== undefined) configData.subcategory = dto.subcategory;
+        if (dto.intensity !== undefined) configData.intensity = dto.intensity;
+        if (dto.estimatedHours !== undefined) configData.estimatedHours = dto.estimatedHours;
+        if (dto.startDate !== undefined) configData.startDate = dto.startDate ? new Date(dto.startDate) : null;
+        if (dto.endDate !== undefined) configData.endDate = dto.endDate ? new Date(dto.endDate) : null;
+        if (dto.enrollmentStartDate !== undefined) configData.enrollmentStartDate = dto.enrollmentStartDate ? new Date(dto.enrollmentStartDate) : null;
+        if (dto.enrollmentEndDate !== undefined) configData.enrollmentEndDate = dto.enrollmentEndDate ? new Date(dto.enrollmentEndDate) : null;
+        if (dto.maxEnrollments !== undefined) configData.maxEnrollments = dto.maxEnrollments;
+        if (dto.requiresApproval !== undefined) configData.requiresApproval = dto.requiresApproval;
+        if (dto.allowSelfEnrollment !== undefined) configData.allowSelfEnrollment = dto.allowSelfEnrollment;
+        if (dto.invitationLink !== undefined) configData.invitation_link = dto.invitationLink;
+        if (dto.colorTitle !== undefined) configData.colorTitle = dto.colorTitle;
+        if (dto.order !== undefined) configData.order = dto.order;
+        
+        // Manejo de imágenes (priorizar coverImage sobre coverImageUrl)
+        if (dto.coverImage !== undefined) {
+            configData.coverImage = dto.coverImage;
+        } else if (dto.coverImageUrl !== undefined) {
+            configData.coverImage = dto.coverImageUrl;
+        }
+        
+        if (dto.menuImage !== undefined) {
+            configData.menuImage = dto.menuImage;
+        } else if (dto.menuImageUrl !== undefined) {
+            configData.menuImage = dto.menuImageUrl;
+        }
+        
+        if (dto.thumbnailImage !== undefined) {
+            configData.thumbnailImage = dto.thumbnailImage;
+        } else if (dto.thumbnailImageUrl !== undefined) {
+            configData.thumbnailImage = dto.thumbnailImageUrl;
+        }
+
+        if (dto.isActive !== undefined) configData.isActive = dto.isActive;
+
+        return configData;
     }
 
     private prepareCourseData(createCourseDto: CreateCourseDto): Partial<Courses> {
@@ -900,7 +1015,7 @@ export class CoursesService {
     /**
      * Genera un slug único para el curso
      */
-    private async generateUniqueSlug(createCourseDto: CreateCourseDto, tenantId: string): Promise<string> {
+    private async generateUniqueSlug(createCourseDto: CreateCourseDto, tenantId: string, excludeId?: string): Promise<string> {
         // Obtener el título base para el slug
         const baseTitle = this.getBaseTitleForSlug(createCourseDto);
 
@@ -1410,191 +1525,5 @@ export class CoursesService {
         };
     }
 
-    async createTask(createTaskDto: CreateTaskDto): Promise<Task> {
-        try {
-            // Validaciones básicas
-            if (!createTaskDto.title?.trim()) {
-                throw new BadRequestException('El título de la tarea es requerido');
-            }
-
-            if (!createTaskDto.tenantId) {
-                throw new BadRequestException('El tenantId es requerido');
-            }
-
-            if (!createTaskDto.courseId) {
-                throw new BadRequestException('El courseId es requerido');
-            }
-
-            if (!createTaskDto.endDate) {
-                throw new BadRequestException('La fecha de entrega es requerida');
-            }
-
-            // Verificar que el curso existe
-            const course = await this.courseRepository.findOne({
-                where: { 
-                    id: createTaskDto.courseId,
-                    tenantId: createTaskDto.tenantId 
-                }
-            });
-
-            if (!course) {
-                throw new NotFoundException('El curso especificado no existe');
-            }
-
-            // Validar fechas
-            const startDate = createTaskDto.startDate ? new Date(createTaskDto.startDate) : null;
-            const endDate = new Date(createTaskDto.endDate);
-            const lateSubmissionDate = createTaskDto.lateSubmissionDate 
-                ? new Date(createTaskDto.lateSubmissionDate) 
-                : null;
-
-            // Validar que endDate sea futuro
-            if (endDate <= new Date()) {
-                throw new BadRequestException('La fecha de entrega debe ser futura');
-            }
-
-            // Validar que startDate sea antes de endDate
-            if (startDate && startDate >= endDate) {
-                throw new BadRequestException('La fecha de inicio debe ser anterior a la fecha de entrega');
-            }
-
-            // Validar que lateSubmissionDate sea después de endDate
-            if (lateSubmissionDate && lateSubmissionDate <= endDate) {
-                throw new BadRequestException('La fecha de entrega tardía debe ser posterior a la fecha de entrega');
-            }
-
-            // Validar tipos de archivo si se proporcionan
-            if (createTaskDto.allowedFileTypes?.length) {
-                const validExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'jpg', 'jpeg', 'png', 'gif', 'txt', 'zip', 'rar'];
-                const invalidTypes = createTaskDto.allowedFileTypes.filter(
-                    type => !validExtensions.includes(type.toLowerCase())
-                );
-                
-                if (invalidTypes.length > 0) {
-                    throw new BadRequestException(
-                        `Tipos de archivo inválidos: ${invalidTypes.join(', ')}`
-                    );
-                }
-            }
-
-            // Crear la tarea
-            const task = new Task();
-            task.title = createTaskDto.title.trim();
-            task.description = createTaskDto.description?.trim() || '';
-            task.instructions = createTaskDto.instructions?.trim() || '';
-            task.courseId = createTaskDto.courseId;
-            task.tenantId = createTaskDto.tenantId;
-            task.createdBy = createTaskDto.createdBy || '';
-            task.status = createTaskDto.status || TaskStatus.DRAFT;
-            
-            // Fechas
-            task.startDate = startDate ?? new Date();
-            task.endDate = endDate ?? new Date((startDate ?? new Date()).getTime() + 7 * 24 * 60 * 60 * 1000);
-            task.lateSubmissionDate = lateSubmissionDate ?? (endDate ? new Date(endDate.getTime() + 3 * 24 * 60 * 60 * 1000) : new Date()); // 3 días después
-
-            // Calificación
-            task.maxPoints = createTaskDto.maxPoints ?? 100;
-            task.lateSubmissionPenalty = createTaskDto.lateSubmissionPenalty ?? 0;
-
-            // Configuración de archivos
-            task.maxFileUploads = createTaskDto.maxFileUploads ?? 3;
-            task.maxFileSize = createTaskDto.maxFileSize ?? 10;
-            task.allowedFileTypes = createTaskDto.allowedFileTypes ?? ['pdf', 'doc', 'docx', 'jpg', 'png'];
-
-            // Configuración de envíos
-            task.allowMultipleSubmissions = createTaskDto.allowMultipleSubmissions ?? true;
-            task.maxSubmissionAttempts = createTaskDto.maxSubmissionAttempts ?? null;
-            task.requireSubmission = createTaskDto.requireSubmission ?? true; // Si la tarea requiere obligatoriamente un envío
-            task.enablePeerReview = createTaskDto.enablePeerReview ?? false;
-
-            // Visualización
-            task.thumbnailImagePath = createTaskDto.thumbnailImagePath ?? '';
-            task.order = createTaskDto.order ?? 0;
-            task.showGradeToStudent = createTaskDto.showGradeToStudent ?? true; // Si muestra la calificación al estudiante
-            task.showFeedbackToStudent = createTaskDto.showFeedbackToStudent ?? true; // Si muestra retroalimentación al estudiante
-            task.notifyOnSubmission = createTaskDto.notifyOnSubmission ?? false;
-
-            task.metadata = createTaskDto.metadata ?? {};
-
-            // Guardar la tarea
-            const savedTask = await this.taskRepository.save(task);
-
-            // Crear configuración si se proporciona
-            if (createTaskDto.configuration) {
-                const taskConfig = new TaskConfig();
-                taskConfig.taskId = savedTask.id;
-                
-                // Asignar todas las propiedades de configuración
-                Object.assign(taskConfig, {
-                    isActive: createTaskDto.configuration.isActive ?? true,
-                    enableSupportResources: createTaskDto.configuration.enableSupportResources ?? false,
-                    showResourcesBeforeSubmission: createTaskDto.configuration.showResourcesBeforeSubmission ?? false,
-                    enableSelfAssessment: createTaskDto.configuration.enableSelfAssessment ?? false,
-                    requireSelfAssessmentBeforeSubmit: createTaskDto.configuration.requireSelfAssessmentBeforeSubmit ?? false,
-                    enableFileUpload: createTaskDto.configuration.enableFileUpload ?? true,
-                    requireFileUpload: createTaskDto.configuration.requireFileUpload ?? false,
-                    enableTextSubmission: createTaskDto.configuration.enableTextSubmission ?? false,
-                    requireTextSubmission: createTaskDto.configuration.requireTextSubmission ?? false,
-                    showToStudentsBeforeStart: createTaskDto.configuration.showToStudentsBeforeStart ?? true,
-                    sendReminderBeforeDue: createTaskDto.configuration.sendReminderBeforeDue ?? true,
-                    reminderHoursBeforeDue: createTaskDto.configuration.reminderHoursBeforeDue ?? 24,
-                    notifyOnGrade: createTaskDto.configuration.notifyOnGrade ?? true,
-                    autoGrade: createTaskDto.configuration.autoGrade ?? false,
-                    requireGradeComment: createTaskDto.configuration.requireGradeComment ?? false,
-                    enableGradeRubric: createTaskDto.configuration.enableGradeRubric ?? false,
-                    rubricData: createTaskDto.configuration.rubricData ?? null,
-                    showOtherSubmissions: createTaskDto.configuration.showOtherSubmissions ?? false,
-                    anonymizeSubmissions: createTaskDto.configuration.anonymizeSubmissions ?? false,
-                    enableGroupSubmission: createTaskDto.configuration.enableGroupSubmission ?? false,
-                    maxGroupSize: createTaskDto.configuration.maxGroupSize ?? null,
-                    enableVersionControl: createTaskDto.configuration.enableVersionControl ?? false,
-                    lockAfterGrade: createTaskDto.configuration.lockAfterGrade ?? false,
-                    metadata: createTaskDto.configuration.metadata ?? {},
-                });
-
-                await this.taskConfigRepository.save(taskConfig);
-            } else {
-                // Crear configuración por defecto
-                const defaultConfig = new TaskConfig();
-                defaultConfig.taskId = savedTask.id;
-                defaultConfig.isActive = true;
-                defaultConfig.enableFileUpload = true;
-                defaultConfig.metadata = {};
-                
-                await this.taskConfigRepository.save(defaultConfig);
-            }
-
-            // Cargar la tarea con sus relaciones
-            const taskWithRelations = await this.taskRepository.findOne({
-                where: { id: savedTask.id },
-                relations: ['configuration', 'course', 'creator']
-            });
-
-            if (!taskWithRelations) {
-                throw new InternalServerErrorException(
-                    'Error al recuperar la tarea creada'
-                );
-            }
-
-            return taskWithRelations;
-
-        } catch (error) {
-            // Si es una excepción conocida, la relanzamos
-            if (
-                error instanceof BadRequestException || 
-                error instanceof NotFoundException ||
-                error instanceof InternalServerErrorException
-            ) {
-                throw error;
-            }
-
-            // Log del error para debugging
-            console.error('Error al crear tarea:', error);
-
-            // Lanzar excepción genérica
-            throw new InternalServerErrorException(
-                'Error al crear la tarea. Por favor, inténtalo de nuevo.'
-            );
-        }
-    }
+    
 }

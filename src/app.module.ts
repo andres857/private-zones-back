@@ -42,8 +42,8 @@ import { Forum } from './forums/entities/forum.entity';
 import { ForumComment } from './forums/entities/forum-comment.entity';
 import { ForumReaction } from './forums/entities/forum-reaction.entity';
 import { CommentReaction } from './forums/entities/comment-reaction.entity';
-import { Task } from './courses/entities/courses-tasks.entity';
-import { TaskConfig } from './courses/entities/courses-tasks-config.entity';
+import { Task } from './tasks/entities/courses-tasks.entity';
+import { TaskConfig } from './tasks/entities/courses-tasks-config.entity';
 import { Quiz } from './courses/entities/courses-quizzes.entity';
 import { Survey } from './courses/entities/courses-surveys.entity';
 import { PermissionsModule } from './permissions/permissions.module';
@@ -59,6 +59,10 @@ import { ContentsModule } from './contents/contents.module';
 import { ModulesModule } from './modules/modules.module';
 import { ForumsModule } from './forums/forums.module';
 import { ContentCategory } from './contents/entities/courses-contents-categories.entity';
+import { TaskSubmission } from './tasks/entities/courses-tasks-submissions.entity';
+import { TaskSubmissionFile } from './tasks/entities/courses-tasks-submission-files.entity';
+import { TaskAttachment } from './tasks/entities/courses-tasks-attachments.entity';
+import { TasksModule } from './tasks/tasks.module';
 
 
 @Module({
@@ -74,7 +78,7 @@ import { ContentCategory } from './contents/entities/courses-contents-categories
       database: process.env.DATABASE_NAME || 'net_db',
       username: process.env.DATABASE_USER || 'postgres',
       password: process.env.DATABASE_PASSWORD || 'postgres',
-      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, TenantViewConfig, TenantComponentConfig, Subscription, UserConfig, UserProfileConfig, UserNotificationConfig, Section, Courses, CourseConfiguration, CourseTranslation, CoursesViewsConfig, Permission, CourseModule, CourseModuleConfig, ModuleItem, ContentItem, Forum, Task, TaskConfig, Quiz, Survey, CoursesUsers, UserCourseProgress, UserModuleProgress, UserItemProgress, UserSession, UserActivityLog, ForumComment, ForumReaction, CommentReaction, ContentCategory],
+      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, TenantViewConfig, TenantComponentConfig, Subscription, UserConfig, UserProfileConfig, UserNotificationConfig, Section, Courses, CourseConfiguration, CourseTranslation, CoursesViewsConfig, Permission, CourseModule, CourseModuleConfig, ModuleItem, ContentItem, Forum, Task, TaskConfig, TaskSubmission, TaskSubmissionFile, TaskAttachment, Quiz, Survey, CoursesUsers, UserCourseProgress, UserModuleProgress, UserItemProgress, UserSession, UserActivityLog, ForumComment, ForumReaction, CommentReaction, ContentCategory],
       synchronize: true,
     }),
     UsersModule,
@@ -91,6 +95,7 @@ import { ContentCategory } from './contents/entities/courses-contents-categories
     ContentsModule,
     ModulesModule,
     ForumsModule,
+    TasksModule,
   ],
   controllers: [AppController],
   providers: [AppService, EventsGateway],

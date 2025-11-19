@@ -17,7 +17,7 @@ import { ModuleItem } from './courses-modules-item.entity';
 import { CoursesUsers } from './courses-users.entity';
 import { ContentItem } from 'src/contents/entities/courses-contents.entity';
 import { ContentCategory } from 'src/contents/entities/courses-contents-categories.entity';
-import { Task } from './courses-tasks.entity';
+import { Task } from '../../tasks/entities/courses-tasks.entity';
 import { Forum } from 'src/forums/entities/forum.entity';
 
 @Entity('courses')

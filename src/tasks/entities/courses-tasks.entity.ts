@@ -3,7 +3,7 @@ import { Tenant } from 'src/tenants/entities/tenant.entity';
 import { User } from 'src/users/entities/user.entity';
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn, Index, OneToOne, OneToMany } from 'typeorm';
 import { TaskConfig } from './courses-tasks-config.entity';
-import { Courses } from './courses.entity';
+import { Courses } from '../../courses/entities/courses.entity';
 import { TaskSubmission } from './courses-tasks-submissions.entity';
 import { TaskAttachment } from './courses-tasks-attachments.entity';
 
