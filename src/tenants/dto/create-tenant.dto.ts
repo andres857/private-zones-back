@@ -271,4 +271,16 @@ export class CreateTenantDto {
 
   @IsOptional()
   logoAdditionalSettings?: Record<string, any>;
+
+  @IsOptional()
+  termsEs?: string;
+
+  @IsOptional()
+  termsEn?: string;
+
+  @IsOptional()
+  privacyEs?: string;
+
+  @IsOptional()
+  privacyEn?: string;
 }
