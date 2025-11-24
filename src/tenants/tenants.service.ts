@@ -250,14 +250,14 @@ export class TenantsService {
       // Crear la información de contacto del tenant
       const contactInfoData = {
         tenant: savedTenant,
-        contactPerson: dto.contactPerson,
-        phone: dto.phone,
-        address: dto.address,
-        city: dto.city,
-        country: dto.country,
+        contactPerson: dto.contactPerson ?? '',
+        phone: dto.phone ?? '',
+        address: dto.address ?? '',
+        city: dto.city ?? '',
+        country: dto.country ?? '',
         contactEmail: dto.contactEmail || `contact@${dto.domain}`,
-        url_portal: dto.url_portal,
-        nit: dto.nit
+        url_portal: dto.url_portal ?? '',
+        nit: dto.nit ?? ''
       };
 
       const tenantContactInfo = this.tenantContactInfoRepository.create(contactInfoData);
@@ -425,7 +425,7 @@ export class TenantsService {
   }
 
   private async validateTenantData(dto: CreateTenantDto): Promise<void> {
-    console.log("Validating tenant data:", dto);
+    // console.log("Validating tenant data:", dto);
     
     // Validaciones adicionales de negocio
     if (dto.slug.includes('admin') || dto.slug.includes('api')) {
@@ -1121,9 +1121,8 @@ export class TenantsService {
         tenantConfig = this.tenantConfigRepository.create({ tenant: updatedTenant });
       }
 
-      console.log("tenantCOnfig:", tenantConfig);
-      console.log("dtoCondifg:", dto);
-
+      // console.log("tenantCOnfig:", tenantConfig);
+      // console.log("dtoCondifg:", dto);
 
       // Actualizar campos de configuración
       if (dto.isActive !== undefined) tenantConfig.status = dto.isActive;
@@ -1248,7 +1247,7 @@ export class TenantsService {
             viewConfig = this.tenantViewConfigRepository.create(viewConfigData);
           }
 
-          console.log(`Updating/Creating view config for ${viewType}:`, JSON.stringify(viewConfig, null, 2));
+          // console.log(`Updating/Creating view config for ${viewType}:`, JSON.stringify(viewConfig, null, 2));
           await queryRunner.manager.save(viewConfig);
         }
       }
