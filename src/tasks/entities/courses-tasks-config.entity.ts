@@ -1,13 +1,22 @@
 // src/courses/entities/courses-tasks-config.entity.ts
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToOne, JoinColumn, ManyToOne, Index } from 'typeorm';
 import { Task } from './courses-tasks.entity';
+import { Tenant } from 'src/tenants/entities/tenant.entity';
 
 @Entity('tasks_config')
 export class TaskConfig {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @OneToOne(() => Task, task => task.configuration)
+    @ManyToOne(() => Tenant, { onDelete: 'CASCADE' })
+    @JoinColumn({ name: 'tenantId' })
+    tenant: Tenant;
+
+    @Column()
+    @Index()
+    tenantId: string;
+
+    @OneToOne(() => Task, task => task.configuration, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'taskId' })
     task: Task;
 

@@ -9,11 +9,20 @@ import {
   Index,
 } from 'typeorm';
 import { Task } from './courses-tasks.entity';
+import { Tenant } from 'src/tenants/entities/tenant.entity';
 
 @Entity('task_attachments')
 export class TaskAttachment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @ManyToOne(() => Tenant, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'tenantId' })
+  tenant: Tenant;
+
+  @Column()
+  @Index()
+  tenantId: string;
 
   @ManyToOne(() => Task, task => task.attachments, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'taskId' })

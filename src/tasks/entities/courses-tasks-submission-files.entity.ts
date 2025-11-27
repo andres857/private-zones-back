@@ -9,11 +9,20 @@ import {
   Index,
 } from 'typeorm';
 import { TaskSubmission } from './courses-tasks-submissions.entity';
+import { Tenant } from 'src/tenants/entities/tenant.entity';
 
 @Entity('task_submission_files')
 export class TaskSubmissionFile {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @ManyToOne(() => Tenant, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'tenantId' })
+  tenant: Tenant;
+
+  @Column()
+  @Index()
+  tenantId: string;
 
   @ManyToOne(() => TaskSubmission, submission => submission.files, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'submissionId' })

@@ -62,7 +62,7 @@ export class Task {
     endDate: Date; // Fecha límite de entrega (dueDate)
 
     @Column({ type: 'timestamp', nullable: true })
-    lateSubmissionDate: Date; // Fecha límite para entregas tardías
+    lateSubmissionDate: Date | null; // Fecha límite para entregas tardías
 
     // Calificación
     @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })

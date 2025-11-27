@@ -14,6 +14,7 @@ import {
 import { Task } from './courses-tasks.entity';
 import { User } from 'src/users/entities/user.entity';
 import { TaskSubmissionFile } from './courses-tasks-submission-files.entity';
+import { Tenant } from 'src/tenants/entities/tenant.entity';
 
 export enum SubmissionStatus {
   DRAFT = 'draft',
@@ -28,6 +29,14 @@ export enum SubmissionStatus {
 export class TaskSubmission {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @ManyToOne(() => Tenant, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'tenantId' })
+  tenant: Tenant;
+
+  @Column()
+  @Index()
+  tenantId: string;
 
   @ManyToOne(() => Task, task => task.submissions, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'taskId' })

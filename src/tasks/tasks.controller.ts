@@ -71,64 +71,157 @@ export class TasksController {
 
   @Get('/course/:courseId')
   async getAllForums(
-  @Req() request: AuthenticatedRequest,
-  @Param('courseId') courseId: string,
-  @Query('search') search?: string,
-  @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
-  @Query('limit', new DefaultValuePipe(12), ParseIntPipe) limit?: number,
+    @Req() request: AuthenticatedRequest,
+    @Param('courseId') courseId: string,
+    @Query('search') search?: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+    @Query('limit', new DefaultValuePipe(12), ParseIntPipe) limit?: number,
   ) {
-  try {
+    try {
       const userId = request.user?.['id'];
       const tenantId = request.tenant?.id;
 
       if (!userId) {
-      throw new BadRequestException('Usuario no autenticado');
+        throw new BadRequestException('Usuario no autenticado');
       }
 
       if (!tenantId) {
-      throw new BadRequestException('Tenant no validado');
+        throw new BadRequestException('Tenant no validado');
       }
 
       const validPage = Math.max(1, page || 1);
       const validLimit = Math.min(Math.max(1, limit || 12), 20);
 
       const result = await this.tasksService.getAll({
-          courseId,
-          search,
-          page: validPage,
-          limit: validLimit,
-          tenantId,
+        courseId,
+        search,
+        page: validPage,
+        limit: validLimit,
+        tenantId,
       });
 
       return {
-          success: true,
-          message: 'Foros obtenidos exitosamente',
-          data: result.data,
-          pagination: result.pagination,
-          stats: result.stats,
+        success: true,
+        message: 'Tareas obtenidas exitosamente',
+        data: result.data,
+        pagination: result.pagination,
+        stats: result.stats,
       };
-  } catch (error) {
+    } catch (error) {
       if (error instanceof BadRequestException) {
-      throw error;
+        throw error;
       }
-      console.error('Error obteniendo foros:', error);
-      throw new InternalServerErrorException('Error interno obteniendo los foros');
+      console.error('Error obteniendo tareas:', error);
+      throw new InternalServerErrorException('Error interno obteniendo los tareas');
+    }
   }
-}
+
+  @Get('/:id')
+  async getTaskById(@Req() request: AuthenticatedRequest, @Param('id') idTask: string) {
+    try {
+      console.log(`Obteniendo tarea por ID: ${idTask}`);
+      const tenantId = request.tenant?.id;
+
+      if (!tenantId) {
+          throw new BadRequestException('Tenant no validado');
+      }
+
+      const task = await this.tasksService.getById(idTask, tenantId);
+
+      return {
+          success: true,
+          message: 'Tarea obtenido exitosamente',
+          data: task
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
 
   @Get()
   findAll() {
     return this.tasksService.findAll();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.tasksService.findOne(+id);
-  }
+  // @Get(':id')
+  // findOne(@Param('id') id: string) {
+  //   return this.tasksService.findOne(+id);
+  // }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateTaskDto: UpdateTaskDto) {
-    return this.tasksService.update(+id, updateTaskDto);
+  @Patch('/update/:id')
+  async updateTask(
+      @Req() request: AuthenticatedRequest,
+      @Param('id') taskId: string,
+      @Body() updateTaskDto: UpdateTaskDto
+  ) {
+    try {
+      const tenantId = request.tenant?.id;
+      const userId = request.user?.id;
+
+      if (!tenantId) {
+        throw new BadRequestException('Tenant no validado');
+      }
+
+      if (!userId) {
+        throw new BadRequestException('Usuario no autenticado');
+      }
+
+      // Validar que la tarea existe y pertenece al tenant
+      const existingTask = await this.tasksService.getById(taskId, tenantId);
+
+      if (!existingTask) {
+        throw new NotFoundException('Tarea no encontrada');
+      }
+
+      // Actualizar la tarea
+      const updatedTask = await this.tasksService.updateTask(
+        taskId,
+        tenantId,
+        updateTaskDto
+      );
+
+      return {
+        success: true,
+        message: 'Tarea actualizada exitosamente',
+        data: {
+          id: updatedTask.id,
+          title: updatedTask.title,
+          description: updatedTask.description,
+          instructions: updatedTask.instructions,
+          status: updatedTask.status,
+          courseId: updatedTask.courseId,
+          startDate: updatedTask.startDate,
+          endDate: updatedTask.endDate,
+          lateSubmissionDate: updatedTask.lateSubmissionDate,
+          maxPoints: updatedTask.maxPoints,
+          lateSubmissionPenalty: updatedTask.lateSubmissionPenalty,
+          maxFileUploads: updatedTask.maxFileUploads,
+          maxFileSize: updatedTask.maxFileSize,
+          allowedFileTypes: updatedTask.allowedFileTypes,
+          allowMultipleSubmissions: updatedTask.allowMultipleSubmissions,
+          maxSubmissionAttempts: updatedTask.maxSubmissionAttempts,
+          requireSubmission: updatedTask.requireSubmission,
+          enablePeerReview: updatedTask.enablePeerReview,
+          showGradeToStudent: updatedTask.showGradeToStudent,
+          showFeedbackToStudent: updatedTask.showFeedbackToStudent,
+          notifyOnSubmission: updatedTask.notifyOnSubmission,
+          order: updatedTask.order,
+          configuration: updatedTask.configuration,
+          updatedAt: updatedTask.updatedAt
+        }
+      };
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof InternalServerErrorException
+      ) {
+        throw error;
+      }
+
+      console.error('Error en endpoint updateTask:', error);
+      throw new InternalServerErrorException('Error al procesar la solicitud');
+    }
   }
 
   @Delete(':id')
