@@ -975,6 +975,262 @@ export class CoursesService {
         };
     }
 
+
+    async findForHome(params: FindAllCoursesParams): Promise<{
+        data: any[];
+        total: number;
+        page: number;
+        limit: number;
+    }> {
+        const {
+            tenantId,
+            actives,
+            search,
+            userId,
+            page = 1,
+            limit = 12,
+            languageCode = 'es'
+        } = params;
+
+        const queryBuilder = this.courseRepository.createQueryBuilder('courses');
+
+        // 🏢 Filtrar por tenant (OBLIGATORIO)
+        queryBuilder.where('courses.tenantId = :tenantId', { tenantId });
+        
+        // 🗑️ Excluir cursos eliminados (soft delete)
+        queryBuilder.andWhere('courses.deleted_at IS NULL');
+        
+        // ✅ Filtrar por estado activo si se especifica
+        if (typeof actives === 'boolean') {
+            queryBuilder.andWhere('courses.isActive = :actives', { actives });
+        }
+
+        // 🔍 Búsqueda por texto en traducciones
+        if (search?.trim()) {
+            queryBuilder
+                .leftJoin('courses.translations', 'searchTranslations')
+                .andWhere(
+                    '(LOWER(searchTranslations.title) LIKE LOWER(:search) OR LOWER(searchTranslations.description) LIKE LOWER(:search) OR LOWER(courses.slug) LIKE LOWER(:search))',
+                    { search: `%${search.trim()}%` }
+                );
+        }
+
+        // 📊 Incluir relaciones necesarias
+        queryBuilder
+            .leftJoinAndSelect('courses.translations', 'courseTranslations')
+            .leftJoinAndSelect('courses.configuration', 'configuration')
+            .leftJoinAndSelect('courses.sections', 'sections')
+            .leftJoinAndSelect('courses.modules', 'modules')
+            .leftJoinAndSelect('modules.items', 'moduleItems');
+
+        // 📈 Ordenar por fecha de creación (más recientes primero)
+        queryBuilder.orderBy('courses.created_at', 'DESC');
+
+        // 📊 Contar total antes de paginar
+        const total = await queryBuilder.getCount();
+
+        // 📄 Aplicar paginación
+        const offset = (page - 1) * limit;
+        queryBuilder.skip(offset).take(limit);
+
+        // 🎯 Ejecutar consulta
+        const courses = await queryBuilder.getMany();
+
+        // 🔄 Si hay userId, obtener el progreso de todos los cursos en una sola consulta
+        let progressMap: Map<string, any> = new Map();
+        
+        if (userId && courses.length > 0) {
+            const courseIds = courses.map(c => c.id);
+            const progressList = await this.userCourseProgressRepository.find({
+                where: {
+                    userId,
+                    courseId: In(courseIds)
+                }
+            });
+
+            // Crear un mapa para acceso rápido
+            progressList.forEach(progress => {
+                progressMap.set(progress.courseId, progress);
+            });
+        }
+
+        // 🔄 Enriquecer cada curso con su progreso
+        const coursesWithProgress = courses.map(course => 
+            this.enrichCourseWithProgress(course, progressMap.get(course.id), languageCode)
+        );
+
+        return {
+            data: coursesWithProgress,
+            total,
+            page,
+            limit,
+        };
+    }
+
+    /**
+     * 🎯 Enriquece un curso con información de progreso y traducciones
+     */
+    private enrichCourseWithProgress(
+        course: Courses,
+        courseProgress: UserCourseProgress | undefined,
+        languageCode: string
+    ): any {
+        // Obtener traducción en el idioma solicitado o la primera disponible
+        const translation = course.translations?.find(t => t.languageCode === languageCode) 
+            || course.translations?.[0];
+
+        // Inicializar valores por defecto
+        let progress = 0;
+        let status = 'No iniciado';
+        let totalTimeSpent = 0;
+        let started_at: Date | null = null;
+        let completed_at: Date | null = null;
+        let lastAccessedAt: Date | null = null;
+
+        // 📊 Si hay progreso del curso, usar esos datos
+        if (courseProgress) {
+            progress = Math.round(Number(courseProgress.progressPercentage));
+            totalTimeSpent = courseProgress.totalTimeSpent;
+            started_at = courseProgress.started_at;
+            completed_at = courseProgress.completed_at;
+            lastAccessedAt = courseProgress.lastAccessedAt;
+
+            // Mapear el status del enum a español
+            switch (courseProgress.status) {
+                case CourseStatus.COMPLETED:
+                    status = 'Completado';
+                    break;
+                case CourseStatus.IN_PROGRESS:
+                    status = 'En progreso';
+                    break;
+                case CourseStatus.NOT_STARTED:
+                    status = 'No iniciado';
+                    break;
+                case CourseStatus.ABANDONED:
+                    status = 'Abandonado';
+                    break;
+                case CourseStatus.FAILED:
+                    status = 'Reprobado';
+                    break;
+                default:
+                    status = 'No iniciado';
+            }
+        }
+
+        // 🕐 Calcular duración total del curso (suma de todos los items)
+        const totalMinutes = this.calculateCourseDuration(course);
+        const duration = this.formatDuration(totalMinutes);
+
+        // 📝 Formatear tiempo gastado
+        const formattedTimeSpent = this.formatDuration(Math.floor(totalTimeSpent / 60));
+
+        return {
+            id: course.id,
+            slug: course.slug,
+            tenantId: course.tenantId,
+            isActive: course.isActive,
+            created_at: course.created_at,
+            updated_at: course.updated_at,
+            deleted_at: course.deleted_at,
+            
+            // Datos traducidos
+            title: translation?.title || 'Sin título',
+            description: translation?.description || '',
+            
+            // Configuración y thumbnail
+            configuration: course.configuration,
+            thumbnail: course.configuration?.thumbnailImage || null,
+            
+            // Datos de progreso
+            progress,
+            status,
+            duration,
+            timeSpent: formattedTimeSpent,
+            totalTimeSpentSeconds: totalTimeSpent,
+            
+            // Fechas de progreso
+            started_at,
+            completed_at,
+            lastAccessedAt,
+            
+            // Estadísticas
+            totalModules: course.modules?.length || 0,
+            totalItems: this.getTotalItems(course),
+            
+            // Relaciones (si las necesitas en el frontend)
+            sections: course.sections,
+            modules: course.modules,
+            translations: course.translations,
+        };
+    }
+
+    /**
+     * 🕐 Calcula la duración total del curso en minutos
+     * Suma la duración de todos los items del curso
+     */
+    private calculateCourseDuration(course: Courses): number {
+        let totalMinutes = 0;
+
+        course.modules?.forEach((module) => {
+            module.items?.forEach((item) => {
+                const itemDuration = this.getItemDuration(item);
+                totalMinutes += itemDuration;
+            });
+        });
+
+        return totalMinutes;
+    }
+
+    /**
+     * 📊 Obtiene la duración de un item según su tipo
+     */
+    private getItemDuration(item: ModuleItem): number {
+        // Si tienes un campo durationMinutes en la entidad, úsalo
+        // if (item.durationMinutes && item.durationMinutes > 0) {
+        //     return item.durationMinutes;
+        // }
+
+        // Si no, asignar duraciones estimadas por tipo
+        const defaultDurations = {
+            [ModuleItemType.CONTENT]: 15,    // 15 minutos para contenido
+            [ModuleItemType.FORUM]: 10,      // 10 minutos para foro
+            [ModuleItemType.TASK]: 30,       // 30 minutos para tarea
+            [ModuleItemType.QUIZ]: 20,       // 20 minutos para quiz
+            [ModuleItemType.SURVEY]: 5,      // 5 minutos para encuesta
+            [ModuleItemType.ACTIVITY]: 25,   // 25 minutos para actividad
+        };
+
+        return defaultDurations[item.type] || 10;
+    }
+
+    /**
+     * 📝 Formatea minutos a formato legible (Xh Ym)
+     */
+    private formatDuration(minutes: number): string {
+        if (minutes < 1) return '0m';
+        
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        
+        if (hours > 0 && mins > 0) {
+            return `${hours}h ${mins}m`;
+        } else if (hours > 0) {
+            return `${hours}h`;
+        }
+        return `${mins}m`;
+    }
+
+    /**
+     * 📊 Obtiene el total de items de un curso
+     */
+    private getTotalItems(course: Courses): number {
+        let total = 0;
+        course.modules?.forEach(module => {
+            total += module.items?.length || 0;
+        });
+        return total;
+    }
+
     /**
      * Buscar curso por slug y tenant
      */

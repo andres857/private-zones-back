@@ -119,6 +119,67 @@ export class CoursesController {
     }
 
 
+    @Get('/home')
+    async forHome(
+        @Req() request: AuthenticatedRequest,
+        @Headers('x-tenant-domain') tenantDomain: string,
+        @CurrentUser() user: any,
+        @Query('search') search?: string,
+        @Query('actives') actives?: boolean,
+        @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+        @Query('limit', new DefaultValuePipe(12), ParseIntPipe) limit?: number,
+    ) {
+        try {
+            const userId = request.user?.['id'];
+            const tenantId = request.tenant?.id;
+
+            // 🛡️ Validaciones con errores específicos de HTTP
+            if (!userId) {
+                throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
+            }
+            
+            if (!tenantId) {
+                throw new HttpException('Tenant not validated', HttpStatus.FORBIDDEN);
+            }
+
+            if (!tenantDomain?.trim()) {
+                throw new HttpException('Tenant domain header is required', HttpStatus.BAD_REQUEST);
+            }
+
+            // 📌 Validar que page y limit sean valores válidos
+            const validPage = Math.max(1, page || 1);
+            const validLimit = Math.min(Math.max(1, limit || 12), 50);
+
+            // 🔍 Validar rango razonable para page (opcional)
+            if (validPage > 1000) {
+                throw new HttpException('Page number too large', HttpStatus.BAD_REQUEST);
+            }
+
+            // ✅ Llamar al método correcto del servicio
+            return await this.coursesService.findForHome({
+                search,
+                actives,
+                page: validPage,
+                limit: validLimit,
+                userId,
+                tenantId
+            });
+
+        } catch (error) {
+            // 🚨 Si es HttpException, la dejamos pasar tal como está
+            if (error instanceof HttpException) {
+                throw error;
+            }
+
+            // 🚨 Para cualquier otro error, lo convertimos a error interno del servidor
+            console.error('Unexpected error in forHome:', error);
+            throw new HttpException(
+                'Internal server error', 
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+
     // @UseInterceptors(
     //   TenantValidationInterceptor // Interceptor de tenant
     // )
