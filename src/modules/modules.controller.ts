@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterceptors, Query, DefaultValuePipe, ParseIntPipe, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterceptors, Query, DefaultValuePipe, ParseIntPipe, Req, BadRequestException } from '@nestjs/common';
 import { ModulesService } from './modules.service';
 import { CreateModuleDto } from './dto/create-module.dto';
 import { UpdateModuleDto } from './dto/update-module.dto';
@@ -76,8 +76,30 @@ export class ModulesController {
     }
 
     @Get(':id')
-    findOne(@Param('id') id: string) {
-        return this.modulesService.findOne(+id);
+    async findOne(
+        @Req() request: AuthenticatedRequest,
+        @Param('id') id: string,
+        @Query('includeContents') includeContents?: boolean // 👈 Query param opcional
+    ) {
+        try {
+            const tenantId = request.tenant?.id;
+
+            if (!tenantId) {
+                throw new BadRequestException('Tenant no validado');
+            }
+
+            // Usar el método apropiado según el query param
+            const module = includeContents 
+                ? await this.modulesService.findOneWithContents(id, tenantId)
+                : await this.modulesService.findOne(id, tenantId);
+
+            return {
+                success: true,
+                data: module
+            };
+        } catch (error) {
+            throw error;
+        }
     }
 
     @Patch(':id')

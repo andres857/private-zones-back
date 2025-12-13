@@ -4,9 +4,10 @@ import { UpdateModuleDto } from './dto/update-module.dto';
 import { GetAllModulesOptions, PaginatedModuleResponse } from './interfaces/modules.interface';
 import { Courses } from 'src/courses/entities/courses.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { CourseModule } from 'src/courses/entities/courses-modules.entity';
 import { CourseModuleConfig } from 'src/courses/entities/courses-modules-config.entity';
+import { ContentItem } from 'src/contents/entities/courses-contents.entity';
 
 @Injectable()
 export class ModulesService {
@@ -20,6 +21,9 @@ export class ModulesService {
 
         @InjectRepository(CourseModuleConfig)
         private courseModuleConfigRepository: Repository<CourseModuleConfig>,
+
+        @InjectRepository(ContentItem)
+        private contentItemRepository: Repository<ContentItem>,
     ) {}
 
     async getAll(options: GetAllModulesOptions): Promise<PaginatedModuleResponse>{
@@ -161,8 +165,103 @@ export class ModulesService {
         return `This action returns all modules`;
     }
 
-    findOne(id: number) {
-        return `This action returns a #${id} module`;
+    async findOne(id: string, tenantId: string) {
+        try {
+            // Buscar el módulo con sus relaciones directas
+            const module = await this.courseModuleRepository.findOne({
+                where: { 
+                    id,
+                    deletedAt: IsNull()
+                },
+                relations: [
+                    'configuration',
+                    'items', // Solo los items, sin contenido anidado
+                    'course'
+                ]
+            });
+
+            if (!module) {
+                throw new BadRequestException('Módulo no encontrado');
+            }
+
+            // Validar que el módulo pertenece al tenant correcto
+            if (module.course.tenantId !== tenantId) {
+                throw new BadRequestException('No tienes permisos para acceder a este módulo');
+            }
+
+            // Validar que la configuración no esté eliminada
+            if (module.configuration?.deletedAt) {
+                throw new BadRequestException('Módulo no encontrado');
+            }
+
+            // Ordenar items por order
+            if (module.items) {
+                module.items.sort((a, b) => {
+                    const orderA = a.order ?? 999999;
+                    const orderB = b.order ?? 999999;
+                    return orderA - orderB;
+                });
+            }
+
+            return module;
+        } catch (error) {
+            if (error instanceof BadRequestException) {
+                throw error;
+            }
+            console.error('Error obteniendo módulo:', error);
+            throw new InternalServerErrorException('Error interno obteniendo el módulo');
+        }
+    }
+
+    // Método para obtener módulo con contenidos cargados
+    async findOneWithContents(id: string, tenantId: string) {
+        try {
+            // Primero obtener el módulo básico
+            const module = await this.findOne(id, tenantId);
+
+            if (!module.items || module.items.length === 0) {
+                return module;
+            }
+
+            // Separar items por tipo
+            const contentItems = module.items.filter(item => item.type === 'content');
+            
+            if (contentItems.length > 0) {
+                // Obtener los IDs de contenido
+                const contentIds = contentItems.map(item => item.referenceId);
+
+                // Cargar todos los contenidos de una vez
+                const contents = await this.contentItemRepository.find({
+                    where: {
+                        id: In(contentIds),
+                        tenantId,
+                        deletedAt: IsNull()
+                    }
+                });
+
+                // Crear un mapa para acceso rápido
+                const contentsMap = new Map(contents.map(c => [c.id, c]));
+
+                // Agregar los contenidos cargados a cada item
+                const itemsWithContent = module.items.map(item => ({
+                    ...item,
+                    content: item.type === 'content' ? contentsMap.get(item.referenceId) : null
+                }));
+
+                return {
+                    ...module,
+                    items: itemsWithContent
+                };
+            }
+
+            return module;
+        } catch (error) {
+            if (error instanceof BadRequestException) {
+                throw error;
+            }
+            console.error('Error obteniendo módulo con contenidos:', error);
+            throw new InternalServerErrorException('Error interno obteniendo el módulo');
+        }
     }
 
     update(id: number, updateModuleDto: UpdateModuleDto) {

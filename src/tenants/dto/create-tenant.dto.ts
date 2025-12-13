@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { 
   IsEmail, 
   IsNotEmpty, 
@@ -139,9 +139,19 @@ export class CreateTenantDto {
 
   @IsOptional()
   @IsBoolean({message: 'El showNotifications debe ser boolean'})
-  showNotifications: boolean
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 'on' || value === true) return true;
+    if (value === 'false' || value === 'off' || value === false) return false;
+    return value;
+  })
+  showNotifications: boolean;
 
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 'on' || value === true) return true;
+    if (value === 'false' || value === 'off' || value === false) return false;
+    return value;
+  })
   isActive: boolean;
 
   @IsOptional()
@@ -211,12 +221,27 @@ export class CreateTenantDto {
 
 
   @IsBoolean({message: 'allowSelfRegistration debe ser true o false'})
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 'on' || value === true) return true;
+    if (value === 'false' || value === 'off' || value === false) return false;
+    return value;
+  })
   allowSelfRegistration: boolean;
 
   @IsBoolean({message: 'allowGoogleLogin debe ser true o false'})
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 'on' || value === true) return true;
+    if (value === 'false' || value === 'off' || value === false) return false;
+    return value;
+  })
   allowGoogleLogin: boolean;
 
   @IsBoolean({message: 'allowFacebookLogin debe ser true o false'})
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 'on' || value === true) return true;
+    if (value === 'false' || value === 'off' || value === false) return false;
+    return value;
+  })
   allowFacebookLogin: boolean;
 
   @IsNotEmpty({message: 'El loginMethod es requerido'})
@@ -225,36 +250,91 @@ export class CreateTenantDto {
   loginMethod: string;
 
   @IsBoolean({message: 'allowValidationStatusUsers debe ser true o false'})
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 'on' || value === true) return true;
+    if (value === 'false' || value === 'off' || value === false) return false;
+    return value;
+  })
   allowValidationStatusUsers: boolean;
 
   @IsBoolean({message: 'requireLastName debe ser true o false'})
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 'on' || value === true) return true;
+    if (value === 'false' || value === 'off' || value === false) return false;
+    return value;
+  })
   requireLastName: boolean;
 
   @IsBoolean({message: 'requirePhone debe ser true o false'})
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 'on' || value === true) return true;
+    if (value === 'false' || value === 'off' || value === false) return false;
+    return value;
+  })
   requirePhone: boolean;
 
   @IsBoolean({message: 'requireDocumentType debe ser true o false'})
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 'on' || value === true) return true;
+    if (value === 'false' || value === 'off' || value === false) return false;
+    return value;
+  })
   requireDocumentType: boolean;
 
   @IsBoolean({message: 'requireDocument debe ser true o false'})
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 'on' || value === true) return true;
+    if (value === 'false' || value === 'off' || value === false) return false;
+    return value;
+  })
   requireDocument: boolean;
 
   @IsBoolean({message: 'requireOrganization debe ser true o false'})
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 'on' || value === true) return true;
+    if (value === 'false' || value === 'off' || value === false) return false;
+    return value;
+  })
   requireOrganization: boolean;
 
   @IsBoolean({message: 'requirePosition debe ser true o false'})
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 'on' || value === true) return true;
+    if (value === 'false' || value === 'off' || value === false) return false;
+    return value;
+  })
   requirePosition: boolean;
 
   @IsBoolean({message: 'requireGender debe ser true o false'})
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 'on' || value === true) return true;
+    if (value === 'false' || value === 'off' || value === false) return false;
+    return value;
+  })
   requireGender: boolean;
 
   @IsBoolean({message: 'requireCity debe ser true o false'})
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 'on' || value === true) return true;
+    if (value === 'false' || value === 'off' || value === false) return false;
+    return value;
+  })
   requireCity: boolean;
 
   @IsBoolean({message: 'requireAddress debe ser true o false'})
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 'on' || value === true) return true;
+    if (value === 'false' || value === 'off' || value === false) return false;
+    return value;
+  })
   requireAddress: boolean;
 
   @IsBoolean({message: 'enableEmailNotifications debe ser true o false'})
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 'on' || value === true) return true;
+    if (value === 'false' || value === 'off' || value === false) return false;
+    return value;
+  })
   enableEmailNotifications: boolean;
 
   @IsString({message: 'El faviconPath debe ser una cadena de texto'})

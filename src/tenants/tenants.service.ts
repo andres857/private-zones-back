@@ -1189,7 +1189,8 @@ export class TenantsService {
         { settings: dto.metricsSettings, viewType: ViewType.METRICS },
         { settings: dto.groupsSettings, viewType: ViewType.CUSTOMERS },
         { settings: dto.sectionsSettings, viewType: ViewType.SECTIONS },
-        { settings: dto.faqSettings, viewType: ViewType.FREQUENTLYASK }
+        { settings: dto.faqSettings, viewType: ViewType.FREQUENTLYASK },
+        { settings: dto.loginRegisterSettings, viewType: ViewType.LOGIN }
       ];
 
       for (const { settings, viewType } of viewConfigs) {

@@ -7,13 +7,15 @@ import { Courses } from 'src/courses/entities/courses.entity';
 import { TenantsModule } from 'src/tenants/tenants.module';
 import { CourseModule } from 'src/courses/entities/courses-modules.entity';
 import { CourseModuleConfig } from 'src/courses/entities/courses-modules-config.entity';
+import { ContentItem } from 'src/contents/entities/courses-contents.entity';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       Courses,
       CourseModule,
-      CourseModuleConfig
+      CourseModuleConfig,
+      ContentItem
     ]),
     TenantsModule,
   ],
