@@ -20,6 +20,7 @@ import { Task } from 'src/tasks/entities/courses-tasks.entity';
 import { Quiz } from 'src/courses/entities/courses-quizzes.entity';
 import { Survey } from 'src/courses/entities/courses-surveys.entity';
 import { ContentCategory } from 'src/contents/entities/courses-contents-categories.entity';
+import { Assessment } from 'src/assessments/entities/assessment.entity';
 
 @Entity()
 export class Tenant {
@@ -53,6 +54,9 @@ export class Tenant {
 
   @OneToOne(() => TenantConfig, config => config.tenant)
   config: TenantConfig;
+
+  @OneToMany(() => Assessment, assessment => assessment.tenant)
+  assessments: Assessment[];
 
   @OneToOne(() => TenantContactInfo, contact => contact.tenant)
   contactInfo: TenantContactInfo;

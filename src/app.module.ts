@@ -63,6 +63,15 @@ import { TaskSubmission } from './tasks/entities/courses-tasks-submissions.entit
 import { TaskSubmissionFile } from './tasks/entities/courses-tasks-submission-files.entity';
 import { TaskAttachment } from './tasks/entities/courses-tasks-attachments.entity';
 import { TasksModule } from './tasks/tasks.module';
+import { Assessment } from './assessments/entities/assessment.entity';
+import { AssessmentConfiguration } from './assessments/entities/assessment-config.entity';
+import { AssessmentTranslation } from './assessments/entities/assessment-translation.entity';
+import { AssessmentQuestion } from './assessments/entities/assessment-question.entity';
+import { AssessmentQuestionOption } from './assessments/entities/assessment-question-option.entity';
+import { AssessmentQuestionTranslation } from './assessments/entities/assessment-question-translation.entity';
+import { AssessmentQuestionOptionTranslation } from './assessments/entities/assessment-question-option-translation.entity';
+import { AssessmentAttempt } from './assessments/entities/assessment-attempt.entity';
+import { AssessmentAttemptAnswer } from './assessments/entities/assessment-attempt-answer.entity';
 
 
 @Module({
@@ -78,7 +87,7 @@ import { TasksModule } from './tasks/tasks.module';
       database: process.env.DATABASE_NAME || 'net_db',
       username: process.env.DATABASE_USER || 'postgres',
       password: process.env.DATABASE_PASSWORD || 'postgres',
-      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, TenantViewConfig, TenantComponentConfig, Subscription, UserConfig, UserProfileConfig, UserNotificationConfig, Section, Courses, CourseConfiguration, CourseTranslation, CoursesViewsConfig, Permission, CourseModule, CourseModuleConfig, ModuleItem, ContentItem, Forum, Task, TaskConfig, TaskSubmission, TaskSubmissionFile, TaskAttachment, Quiz, Survey, CoursesUsers, UserCourseProgress, UserModuleProgress, UserItemProgress, UserSession, UserActivityLog, ForumComment, ForumReaction, CommentReaction, ContentCategory],
+      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, TenantViewConfig, TenantComponentConfig, Subscription, UserConfig, UserProfileConfig, UserNotificationConfig, Section, Courses, CourseConfiguration, CourseTranslation, CoursesViewsConfig, Permission, CourseModule, CourseModuleConfig, ModuleItem, ContentItem, Forum, Task, TaskConfig, TaskSubmission, TaskSubmissionFile, TaskAttachment, Quiz, Survey, CoursesUsers, UserCourseProgress, UserModuleProgress, UserItemProgress, UserSession, UserActivityLog, ForumComment, ForumReaction, CommentReaction, ContentCategory, Assessment, AssessmentConfiguration, AssessmentTranslation, AssessmentQuestion, AssessmentQuestionOption, AssessmentQuestionTranslation, AssessmentQuestionOptionTranslation, AssessmentAttempt, AssessmentAttemptAnswer],
       synchronize: true,
     }),
     UsersModule,

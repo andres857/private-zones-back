@@ -19,6 +19,7 @@ import { ContentItem } from 'src/contents/entities/courses-contents.entity';
 import { ContentCategory } from 'src/contents/entities/courses-contents-categories.entity';
 import { Task } from '../../tasks/entities/courses-tasks.entity';
 import { Forum } from 'src/forums/entities/forum.entity';
+import { Assessment } from 'src/assessments/entities/assessment.entity';
 
 @Entity('courses')
 export class Courses {
@@ -88,6 +89,9 @@ export class Courses {
 
   @OneToMany(() => Forum, forum => forum.course, { cascade: true })
   forums: Forum[];
+
+  @OneToMany(() => Assessment, assessment => assessment.course)
+  assessments: Assessment[];
 
   // Helper para obtener todos los ítems del curso
   getAllItems(): ModuleItem[] {
