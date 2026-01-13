@@ -72,6 +72,7 @@ import { AssessmentQuestionTranslation } from './assessments/entities/assessment
 import { AssessmentQuestionOptionTranslation } from './assessments/entities/assessment-question-option-translation.entity';
 import { AssessmentAttempt } from './assessments/entities/assessment-attempt.entity';
 import { AssessmentAttemptAnswer } from './assessments/entities/assessment-attempt-answer.entity';
+import { AssessmentsModule } from './assessments/assessments.module';
 
 
 @Module({
@@ -105,6 +106,7 @@ import { AssessmentAttemptAnswer } from './assessments/entities/assessment-attem
     ModulesModule,
     ForumsModule,
     TasksModule,
+    AssessmentsModule,
   ],
   controllers: [AppController],
   providers: [AppService, EventsGateway],
