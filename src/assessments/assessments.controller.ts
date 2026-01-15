@@ -1,8 +1,10 @@
-import { BadRequestException, Controller, DefaultValuePipe, Get, InternalServerErrorException, Param, ParseIntPipe, Query, Req, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, DefaultValuePipe, Get, InternalServerErrorException, NotFoundException, Param, ParseIntPipe, Post, Put, Query, Req, UseGuards, UseInterceptors } from '@nestjs/common';
 import { AssessmentsService } from './assessments.service';
 import { AuthenticatedRequest } from 'src/common/enums/types/request.types';
 import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
 import { AuthGuard } from '@nestjs/passport';
+import { CreateAssessmentDto } from './dto/create-assessment.dto';
+import { UpdateAssessmentDto } from './dto/update-assessment.dto';
 
 @Controller('assessments')
 @UseGuards(AuthGuard('jwt'))
@@ -94,6 +96,79 @@ export class AssessmentsController {
             }
             console.error('Error obteniendo evaluación:', error);
             throw new InternalServerErrorException('Error interno obteniendo la evaluación');
+        }
+    }
+
+    @Post()
+    async createAssessment(
+        @Req() request: AuthenticatedRequest,
+        @Body() createAssessmentDto: CreateAssessmentDto,
+    ) {
+        try {
+            const userId = request.user?.['id'];
+            const tenantId = request.tenant?.id;
+
+            if (!userId) {
+                throw new BadRequestException('Usuario no autenticado');
+            }
+
+            if (!tenantId) {
+                throw new BadRequestException('Tenant no validado');
+            }
+
+            const assessment = await this.assessmentService.create({
+                ...createAssessmentDto,
+                tenantId,
+            });
+
+            return {
+                success: true,
+                message: 'Evaluación creada exitosamente',
+                data: assessment,
+            };
+        } catch (error) {
+            if (error instanceof BadRequestException) {
+                throw error;
+            }
+            console.error('Error creando evaluación:', error);
+            throw new InternalServerErrorException('Error interno creando la evaluación');
+        }
+    }
+
+    @Put(':id')
+    async update(
+        @Req() request: AuthenticatedRequest,
+        @Param('id') id: string,
+        @Body() updateAssessmentDto: UpdateAssessmentDto,
+    ) {
+        try {
+            const userId = request.user?.['id'];
+            const tenantId = request.tenant?.id;
+
+            if (!userId) {
+                throw new BadRequestException('Usuario no autenticado');
+            }
+
+            if (!tenantId) {
+                throw new BadRequestException('Tenant no validado');
+            }
+
+            const assessment = await this.assessmentService.update(id, {
+                ...updateAssessmentDto,
+                tenantId,
+            });
+
+            return {
+                success: true,
+                message: 'Evaluación actualizada exitosamente',
+                data: assessment,
+            };
+        } catch (error) {
+            if (error instanceof BadRequestException || error instanceof NotFoundException) {
+                throw error;
+            }
+            console.error('Error actualizando evaluación:', error);
+            throw new InternalServerErrorException('Error interno actualizando la evaluación');
         }
     }
 

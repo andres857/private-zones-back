@@ -29,6 +29,10 @@ export class AssessmentConfiguration {
     @Column()
     assessmentId: string;
 
+    // columna de descripcion
+    @Column({ nullable: true, type: 'text' })
+    description: string | null;
+
     // Configuración de calificación
     @Column({ default: true })
     isGradable: boolean; // Si otorga calificación
@@ -41,7 +45,7 @@ export class AssessmentConfiguration {
     gradingMethod: GradingMethod;
 
     @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
-    passingScore: number; // Nota mínima para aprobar (ej: 70.00)
+    passingScore: number | 80; // Nota mínima para aprobar (ej: 80.00)
 
     @Column({ type: 'decimal', precision: 5, scale: 2, default: 100 })
     maxScore: number; // Puntaje máximo posible
@@ -50,8 +54,8 @@ export class AssessmentConfiguration {
     @Column({ default: false })
     generatesCertificate: boolean; // Si genera certificado al aprobar
 
-    @Column({ nullable: true })
-    certificateTemplateId: string; // ID de la plantilla de certificado
+    @Column({ type: 'varchar', nullable: true })
+    certificateTemplateId: string | null; // ID de la plantilla de certificado
 
     @Column({ default: false })
     requirePassingScoreForCertificate: boolean; // Requiere nota mínima para certificado
@@ -60,11 +64,11 @@ export class AssessmentConfiguration {
     @Column({ default: false })
     hasAdditionalQuestions: boolean; // Si tiene preguntas no calificables
 
-    @Column({ nullable: true })
-    additionalQuestionsPosition: string; // 'start', 'end', 'mixed'
+    @Column({ type: 'varchar', nullable: true })
+    additionalQuestionsPosition: string | null; // 'start', 'end', 'mixed'
 
     @Column({ nullable: true, type: 'text' })
-    additionalQuestionsInstructions: string; // Instrucciones para preguntas adicionales
+    additionalQuestionsInstructions: string | null; // Instrucciones para preguntas adicionales
 
     // Configuración de intentos
     @Column({ default: 1 })
@@ -79,12 +83,12 @@ export class AssessmentConfiguration {
     @Column({ default: false })
     showScoreImmediately: boolean; // Mostrar calificación inmediatamente
 
-    @Column({ nullable: true })
-    timeBetweenAttempts: number; // Tiempo en minutos entre intentos
+    @Column({ type: 'int', nullable: true })
+    timeBetweenAttempts: number | null; // Tiempo en minutos entre intentos
 
     // Configuración de tiempo
-    @Column({ nullable: true })
-    timeLimit: number; // Límite de tiempo en minutos (null = sin límite)
+    @Column({ type: 'int', nullable: true })
+    timeLimit: number | null; // Límite de tiempo en minutos (null = sin límite)
 
     @Column({ default: false })
     strictTimeLimit: boolean; // Si el tiempo es estricto (auto-enviar al terminar)
@@ -107,21 +111,21 @@ export class AssessmentConfiguration {
     allowNavigationBetweenQuestions: boolean; // Permitir navegar entre preguntas
 
     // Fechas de disponibilidad
-    @Column({ nullable: true })
-    availableFrom: Date; // Fecha desde la que está disponible
+    @Column({ type: 'timestamp', nullable: true })
+    availableFrom: Date | null; // Fecha desde la que está disponible
 
-    @Column({ nullable: true })
-    availableUntil: Date; // Fecha hasta la que está disponible
+    @Column({ type: 'timestamp', nullable: true })
+    availableUntil: Date | null; // Fecha hasta la que está disponible
 
-    @Column({ nullable: true })
-    gradeReleaseDate: Date; // Fecha de liberación de calificaciones
+    @Column({ type: 'timestamp', nullable: true })
+    gradeReleaseDate: Date | null; // Fecha de liberación de calificaciones
 
     // Configuración de acceso
     @Column({ default: false })
     requirePassword: boolean; // Requiere contraseña para acceder
 
-    @Column({ nullable: true })
-    accessPassword: string; // Contraseña de acceso
+    @Column({ type: 'varchar', nullable: true })
+    accessPassword: string | null; // Contraseña de acceso
 
     @Column({ default: false })
     requireProctoring: boolean; // Requiere supervisión
@@ -140,10 +144,10 @@ export class AssessmentConfiguration {
     showFeedbackAfterCompletion: boolean; // Mostrar feedback al completar
 
     @Column({ nullable: true, type: 'text' })
-    customPassMessage: string; // Mensaje personalizado al aprobar
+    customPassMessage: string | null; // Mensaje personalizado al aprobar
 
     @Column({ nullable: true, type: 'text' })
-    customFailMessage: string; // Mensaje personalizado al reprobar
+    customFailMessage: string | null; // Mensaje personalizado al reprobar
 
     // Configuración de notificaciones
     @Column({ default: false })
