@@ -239,8 +239,6 @@ export class AssessmentsController {
                 questions
             );
 
-            console.log('Preguntas guardadas:', savedQuestions);
-
             return {
                 success: true,
                 message: 'Preguntas guardadas exitosamente',
