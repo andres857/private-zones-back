@@ -8,19 +8,32 @@ import { Assessment } from './entities/assessment.entity';
 import { AssessmentTranslation } from './entities/assessment-translation.entity';
 import { AssessmentConfiguration } from './entities/assessment-config.entity';
 import { Courses } from 'src/courses/entities/courses.entity';
+import { AssessmentQuestion } from './entities/assessment-question.entity';
+import { AssessmentQuestionOption } from './entities/assessment-question-option.entity';
+import { AssessmentQuestionTranslation } from './entities/assessment-question-translation.entity';
+import { AssessmentQuestionOptionTranslation } from './entities/assessment-question-option-translation.entity';
+import { AssessmentAttempt } from './entities/assessment-attempt.entity';
+import { AssessmentAttemptAnswer } from './entities/assessment-attempt-answer.entity';
+import { QuestionsService } from './questions.service';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([
             Assessment,
-            AssessmentTranslation,
             AssessmentConfiguration,
+            AssessmentTranslation,
+            AssessmentQuestion,
+            AssessmentQuestionOption,
+            AssessmentQuestionTranslation,
+            AssessmentQuestionOptionTranslation,
+            AssessmentAttempt,
+            AssessmentAttemptAnswer,
             Courses,
         ]),
         TenantsModule,
     ],
     controllers: [AssessmentsController],
-    providers: [AssessmentsService, TenantValidationInterceptor],
-    exports: [AssessmentsService],
+    providers: [AssessmentsService, QuestionsService, TenantValidationInterceptor],
+    exports: [AssessmentsService, QuestionsService],
 })
 export class AssessmentsModule { }
