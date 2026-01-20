@@ -15,11 +15,15 @@ import { AssessmentQuestionOptionTranslation } from './entities/assessment-quest
 import { AssessmentAttempt } from './entities/assessment-attempt.entity';
 import { AssessmentAttemptAnswer } from './entities/assessment-attempt-answer.entity';
 import { QuestionsService } from './questions.service';
+import { AssessmentSession } from './entities/assessment-session.entity';
+import { AssessmentSessionsService } from './assessment-sessions.service';
+import { AssessmentSessionsController } from './assessment-sessions.controller';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([
             Assessment,
+            AssessmentSession,
             AssessmentConfiguration,
             AssessmentTranslation,
             AssessmentQuestion,
@@ -32,8 +36,8 @@ import { QuestionsService } from './questions.service';
         ]),
         TenantsModule,
     ],
-    controllers: [AssessmentsController],
-    providers: [AssessmentsService, QuestionsService, TenantValidationInterceptor],
+    controllers: [AssessmentsController, AssessmentSessionsController],
+    providers: [AssessmentsService, QuestionsService, TenantValidationInterceptor, AssessmentSessionsService],
     exports: [AssessmentsService, QuestionsService],
 })
 export class AssessmentsModule { }

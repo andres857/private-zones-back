@@ -33,8 +33,8 @@ export class AssessmentsService {
         @InjectRepository(Courses)
         private readonly coursesRepository: Repository<Courses>,
         private readonly dataSource: DataSource,
-        
-    ) {}
+
+    ) { }
 
     async getAllByCourse(params: GetAllByCourseParams) {
         const { courseId, search, actives, page, limit, tenantId } = params;
@@ -121,7 +121,7 @@ export class AssessmentsService {
             const assessment = await this.assessmentRepository
                 .createQueryBuilder('assessment')
                 .leftJoinAndSelect(
-                    'assessment.translations', 
+                    'assessment.translations',
                     'translations',
                     'translations.languageCode = :lang',
                     { lang: 'es' }
@@ -136,7 +136,7 @@ export class AssessmentsService {
             }
 
             return assessment;
-            
+
         } catch (error) {
             if (error instanceof NotFoundException) {
                 throw error;
@@ -203,7 +203,7 @@ export class AssessmentsService {
                     questionOrderMode: configuration?.questionOrderMode || QuestionOrderMode.FIXED,
                     randomizeOptions: configuration?.randomizeOptions || false,
                     oneQuestionPerPage: configuration?.oneQuestionPerPage || false,
-                    allowNavigationBetweenQuestions: configuration?.allowNavigationBetweenQuestions !== undefined ? 
+                    allowNavigationBetweenQuestions: configuration?.allowNavigationBetweenQuestions !== undefined ?
                         configuration.allowNavigationBetweenQuestions : true,
                     availableFrom: configuration?.availableFrom ? new Date(configuration.availableFrom) : null,
                     availableUntil: configuration?.availableUntil ? new Date(configuration.availableUntil) : null,
@@ -213,9 +213,9 @@ export class AssessmentsService {
                     requireProctoring: configuration?.requireProctoring || false,
                     preventTabSwitching: configuration?.preventTabSwitching || false,
                     fullscreenMode: configuration?.fullscreenMode || false,
-                    showFeedbackAfterQuestion: configuration?.showFeedbackAfterQuestion !== undefined ? 
+                    showFeedbackAfterQuestion: configuration?.showFeedbackAfterQuestion !== undefined ?
                         configuration.showFeedbackAfterQuestion : true,
-                    showFeedbackAfterCompletion: configuration?.showFeedbackAfterCompletion !== undefined ? 
+                    showFeedbackAfterCompletion: configuration?.showFeedbackAfterCompletion !== undefined ?
                         configuration.showFeedbackAfterCompletion : true,
                     customPassMessage: configuration?.customPassMessage || null,
                     customFailMessage: configuration?.customFailMessage || null,
@@ -359,5 +359,213 @@ export class AssessmentsService {
         });
 
         return result;
+    }
+
+    /**
+     * Obtiene una evaluación con todas sus preguntas y opciones
+     * para que el estudiante pueda realizarla
+     */
+    // async getByIdWithQuestions(
+    //     id: string,
+    //     tenantId: string,
+    // ): Promise<Assessment> {
+    //     const assessment = await this.assessmentRepository.findOne({
+    //         where: {
+    //             id,
+    //             tenantId,
+    //             isActive: true,
+    //         },
+    //         relations: [
+    //             'configuration',
+    //             'translations',
+    //             'questions',
+    //             'questions.translations',
+    //             'questions.options',
+    //             'questions.options.translations',
+    //         ],
+    //         order: {
+    //             questions: {
+    //                 order: 'ASC',
+    //                 options: {
+    //                     order: 'ASC',
+    //                 },
+    //             },
+    //         },
+    //     });
+
+    //     if (!assessment) {
+    //         throw new NotFoundException('Evaluación no encontrada');
+    //     }
+
+    //     // Validar que la evaluación esté publicada
+    //     if (assessment.status !== 'published') {
+    //         throw new BadRequestException('Esta evaluación no está disponible');
+    //     }
+
+    //     // Validar fechas de disponibilidad si existen
+    //     if (assessment.configuration) {
+    //         const now = new Date();
+
+    //         if (
+    //             assessment.configuration.availableFrom &&
+    //             now < assessment.configuration.availableFrom
+    //         ) {
+    //             throw new BadRequestException('Esta evaluación aún no está disponible');
+    //         }
+
+    //         if (
+    //             assessment.configuration.availableUntil &&
+    //             now > assessment.configuration.availableUntil
+    //         ) {
+    //             throw new BadRequestException('Esta evaluación ya no está disponible');
+    //         }
+    //     }
+
+    //     // Remover las respuestas correctas de las opciones (seguridad)
+    //     if (assessment.questions) {
+    //         assessment.questions.forEach(question => {
+    //             if (question.options) {
+    //                 question.options.forEach(option => {
+    //                     // Solo mantener isCorrect para validación posterior, 
+    //                     // pero no enviar al frontend
+    //                     delete option.isCorrect;
+    //                 });
+    //             }
+    //         });
+    //     }
+
+    //     return assessment;
+    // }
+
+    /**
+ * Obtiene evaluación para estudiantes - SIN respuestas correctas
+ */
+    async getByIdWithQuestions(
+        id: string,
+        tenantId: string,
+    ): Promise<any> {
+        const assessment = await this.assessmentRepository.findOne({
+            where: {
+                id,
+                tenantId,
+                isActive: true,
+            },
+            relations: [
+                'configuration',
+                'translations',
+                'questions',
+                'questions.translations',
+                'questions.options',
+                'questions.options.translations',
+            ],
+            order: {
+                questions: {
+                    order: 'ASC',
+                    options: {
+                        order: 'ASC',
+                    },
+                },
+            },
+        });
+
+        if (!assessment) {
+            throw new NotFoundException('Evaluación no encontrada');
+        }
+
+        if (assessment.status !== 'published') {
+            throw new BadRequestException('Esta evaluación no está disponible');
+        }
+
+        // Validar disponibilidad
+        if (assessment.configuration) {
+            const now = new Date();
+
+            if (
+                assessment.configuration.availableFrom &&
+                now < assessment.configuration.availableFrom
+            ) {
+                throw new BadRequestException('Esta evaluación aún no está disponible');
+            }
+
+            if (
+                assessment.configuration.availableUntil &&
+                now > assessment.configuration.availableUntil
+            ) {
+                throw new BadRequestException('Esta evaluación ya no está disponible');
+            }
+        }
+
+        // Transformar para remover información sensible
+        return {
+            id: assessment.id,
+            slug: assessment.slug,
+            type: assessment.type,
+            status: assessment.status,
+            translations: assessment.translations,
+            configuration: {
+                ...assessment.configuration,
+                // Remover información sensible
+                accessPassword: undefined,
+            },
+            questions: assessment.questions.map(question => ({
+                id: question.id,
+                type: question.type,
+                order: question.order,
+                points: question.points,
+                isRequired: question.isRequired,
+                difficulty: question.difficulty,
+                caseSensitive: question.caseSensitive,
+                minLength: question.minLength,
+                maxLength: question.maxLength,
+                scaleMin: question.scaleMin,
+                scaleMax: question.scaleMax,
+                scaleStep: question.scaleStep,
+                translations: question.translations,
+                options: question.options.map(option => ({
+                    id: option.id,
+                    order: option.order,
+                    translations: option.translations,
+                    // NO incluir isCorrect, partialCreditPercentage
+                })),
+            })),
+        };
+    }
+
+    /**
+     * Versión alternativa que SÍ incluye las respuestas correctas
+     * (solo para administradores/instructores)
+     */
+    async getByIdWithQuestionsAdmin(
+        id: string,
+        tenantId: string,
+    ): Promise<Assessment> {
+        const assessment = await this.assessmentRepository.findOne({
+            where: {
+                id,
+                tenantId,
+            },
+            relations: [
+                'configuration',
+                'translations',
+                'questions',
+                'questions.translations',
+                'questions.options',
+                'questions.options.translations',
+            ],
+            order: {
+                questions: {
+                    order: 'ASC',
+                    options: {
+                        order: 'ASC',
+                    },
+                },
+            },
+        });
+
+        if (!assessment) {
+            throw new NotFoundException('Evaluación no encontrada');
+        }
+
+        return assessment;
     }
 }

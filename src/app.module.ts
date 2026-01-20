@@ -73,6 +73,7 @@ import { AssessmentQuestionOptionTranslation } from './assessments/entities/asse
 import { AssessmentAttempt } from './assessments/entities/assessment-attempt.entity';
 import { AssessmentAttemptAnswer } from './assessments/entities/assessment-attempt-answer.entity';
 import { AssessmentsModule } from './assessments/assessments.module';
+import { AssessmentSession } from './assessments/entities/assessment-session.entity';
 
 
 @Module({
@@ -88,7 +89,7 @@ import { AssessmentsModule } from './assessments/assessments.module';
       database: process.env.DATABASE_NAME || 'net_db',
       username: process.env.DATABASE_USER || 'postgres',
       password: process.env.DATABASE_PASSWORD || 'postgres',
-      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, TenantViewConfig, TenantComponentConfig, Subscription, UserConfig, UserProfileConfig, UserNotificationConfig, Section, Courses, CourseConfiguration, CourseTranslation, CoursesViewsConfig, Permission, CourseModule, CourseModuleConfig, ModuleItem, ContentItem, Forum, Task, TaskConfig, TaskSubmission, TaskSubmissionFile, TaskAttachment, Quiz, Survey, CoursesUsers, UserCourseProgress, UserModuleProgress, UserItemProgress, UserSession, UserActivityLog, ForumComment, ForumReaction, CommentReaction, ContentCategory, Assessment, AssessmentConfiguration, AssessmentTranslation, AssessmentQuestion, AssessmentQuestionOption, AssessmentQuestionTranslation, AssessmentQuestionOptionTranslation, AssessmentAttempt, AssessmentAttemptAnswer],
+      entities: [User, Tenant, TenantConfig, TenantContactInfo, Role, RefreshToken, TenantProduct, TenantViewConfig, TenantComponentConfig, Subscription, UserConfig, UserProfileConfig, UserNotificationConfig, Section, Courses, CourseConfiguration, CourseTranslation, CoursesViewsConfig, Permission, CourseModule, CourseModuleConfig, ModuleItem, ContentItem, Forum, Task, TaskConfig, TaskSubmission, TaskSubmissionFile, TaskAttachment, Quiz, Survey, CoursesUsers, UserCourseProgress, UserModuleProgress, UserItemProgress, UserSession, UserActivityLog, ForumComment, ForumReaction, CommentReaction, ContentCategory, Assessment, AssessmentConfiguration, AssessmentTranslation, AssessmentQuestion, AssessmentQuestionOption, AssessmentQuestionTranslation, AssessmentQuestionOptionTranslation, AssessmentAttempt, AssessmentAttemptAnswer, AssessmentSession],
       synchronize: true,
     }),
     UsersModule,

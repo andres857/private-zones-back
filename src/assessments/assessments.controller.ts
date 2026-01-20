@@ -7,6 +7,9 @@ import { AuthGuard } from '@nestjs/passport';
 import { CreateAssessmentDto } from './dto/create-assessment.dto';
 import { UpdateAssessmentDto } from './dto/update-assessment.dto';
 import { CreateQuestionDto } from './dto/create-question.dto';
+import { AssessmentAttempt } from './entities/assessment-attempt.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
 @Controller('assessments')
 @UseGuards(AuthGuard('jwt'))
@@ -15,6 +18,8 @@ export class AssessmentsController {
     constructor(
         private readonly assessmentService: AssessmentsService,
         private readonly questionsService: QuestionsService,
+        @InjectRepository(AssessmentAttempt)
+        private attemptRepository: Repository<AssessmentAttempt>,
     ) { }
 
     @Get('course/:courseId')
@@ -25,12 +30,12 @@ export class AssessmentsController {
         @Query('actives') actives?: boolean,
         @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
         @Query('limit', new DefaultValuePipe(12), ParseIntPipe) limit?: number,
-    ){
+    ) {
 
         try {
 
             const userId = request.user?.['id'];
-    
+
             const tenantId = request.tenant?.id;
 
             if (!userId) {
@@ -61,7 +66,7 @@ export class AssessmentsController {
                 pagination: result.pagination,
                 stats: result.stats,
             };
-            
+
         } catch (error) {
             if (error instanceof BadRequestException) {
                 throw error;
@@ -287,6 +292,112 @@ export class AssessmentsController {
             }
             console.error('Error eliminando pregunta:', error);
             throw new InternalServerErrorException('Error interno eliminando la pregunta');
+        }
+    }
+
+    @Get(':id/start-info')
+    async getStartInfo(
+        @Req() request: AuthenticatedRequest,
+        @Param('id') id: string,
+    ) {
+        try {
+            const userId = request.user?.['id'];
+            const tenantId = request.tenant?.id;
+
+            if (!userId) {
+                throw new BadRequestException('Usuario no autenticado');
+            }
+
+            if (!tenantId) {
+                throw new BadRequestException('Tenant no validado');
+            }
+
+            const assessment = await this.assessmentService.getById(id, tenantId);
+
+            console.log('Assessment obtenido:', assessment);
+
+            // Obtener intentos del usuario
+            const attempts = await this.attemptRepository.find({
+                where: { assessmentId: id, userId },
+                order: { createdAt: 'DESC' },
+            });
+
+            const attemptsCount = attempts.length;
+            const maxAttempts = assessment.configuration?.maxAttempts || 1;
+            const canAttempt = maxAttempts === 0 || attemptsCount < maxAttempts;
+
+            const lastAttempt = attempts[0];
+
+            const translation = assessment.translations?.find((t: any) => t.languageCode === 'es')
+                || assessment.translations?.[0];
+
+            return {
+                success: true,
+                data: {
+                    assessment: {
+                        id: assessment.id,
+                        title: translation?.title,
+                        description: translation?.description,
+                        instructions: translation?.instructions,
+                        welcomeMessage: translation?.welcomeMessage,
+                        type: assessment.type,
+                        configuration: assessment.configuration,
+                        questionCount: assessment.questions?.length || 0,
+                    },
+                    userAttempts: {
+                        count: attemptsCount,
+                        canAttempt,
+                        lastAttempt: lastAttempt ? {
+                            score: lastAttempt.score,
+                            passed: lastAttempt.passed,
+                            completedAt: lastAttempt.completedAt,
+                        } : null,
+                    },
+                },
+            };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    @Get(':id/take')
+    async getAssessmentToTake(
+        @Req() request: AuthenticatedRequest,
+        @Param('id') id: string,
+    ) {
+        try {
+            const userId = request.user?.['id'];
+            const tenantId = request.tenant?.id;
+
+            if (!userId) {
+                throw new BadRequestException('Usuario no autenticado');
+            }
+
+            if (!tenantId) {
+                throw new BadRequestException('Tenant no validado');
+            }
+
+            const assessment = await this.assessmentService.getByIdWithQuestions(id, tenantId);
+
+            console.log('Assessment para tomar obtenido:', assessment);
+
+            const translation = assessment.translations?.find((t: any) => t.languageCode === 'es')
+                || assessment.translations?.[0];
+
+            return {
+                success: true,
+                data: {
+                    id: assessment.id,
+                    title: translation?.title,
+                    description: translation?.description,
+                    instructions: translation?.instructions,
+                    welcomeMessage: translation?.welcomeMessage,
+                    questions: assessment.questions,
+                    configuration: assessment.configuration,
+                },
+            };
+        } catch (error) {
+            throw error;
         }
     }
 
