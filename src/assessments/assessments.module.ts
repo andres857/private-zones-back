@@ -18,6 +18,8 @@ import { QuestionsService } from './questions.service';
 import { AssessmentSession } from './entities/assessment-session.entity';
 import { AssessmentSessionsService } from './assessment-sessions.service';
 import { AssessmentSessionsController } from './assessment-sessions.controller';
+import { AssessmentAttemptsController } from './assessment-attempts.controller';
+import { AssessmentAttemptsService } from './assessment-attempts.service';
 
 @Module({
     imports: [
@@ -36,8 +38,8 @@ import { AssessmentSessionsController } from './assessment-sessions.controller';
         ]),
         TenantsModule,
     ],
-    controllers: [AssessmentsController, AssessmentSessionsController],
-    providers: [AssessmentsService, QuestionsService, TenantValidationInterceptor, AssessmentSessionsService],
-    exports: [AssessmentsService, QuestionsService],
+    controllers: [AssessmentsController, AssessmentSessionsController, AssessmentAttemptsController],
+    providers: [AssessmentsService, QuestionsService, TenantValidationInterceptor, AssessmentSessionsService, AssessmentAttemptsService],
+    exports: [AssessmentsService, QuestionsService, AssessmentAttemptsService],
 })
 export class AssessmentsModule { }

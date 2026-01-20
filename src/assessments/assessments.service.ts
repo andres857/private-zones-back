@@ -119,17 +119,28 @@ export class AssessmentsService {
     async getById(id: string, tenantId: string): Promise<Assessment> {
         try {
             const assessment = await this.assessmentRepository
-                .createQueryBuilder('assessment')
-                .leftJoinAndSelect(
-                    'assessment.translations',
-                    'translations',
-                    'translations.languageCode = :lang',
-                    { lang: 'es' }
-                )
-                .leftJoinAndSelect('assessment.configuration', 'configuration')
-                .where('assessment.id = :id', { id })
-                .andWhere('assessment.tenantId = :tenantId', { tenantId })
-                .getOne();
+            .createQueryBuilder('assessment')
+            .leftJoinAndSelect(
+                'assessment.translations',
+                'translations',
+                'translations.languageCode = :lang',
+                { lang: 'es' }
+            )
+            .leftJoinAndSelect('assessment.configuration', 'configuration')
+            .leftJoinAndSelect('assessment.questions', 'questions')
+            .leftJoinAndSelect('questions.options', 'options')
+            .leftJoinAndSelect(
+                'questions.translations',
+                'questionTranslations',
+                'questionTranslations.languageCode = :lang',
+                { lang: 'es' }
+            )
+            // .leftJoinAndSelect('attempts', 'attempts', 'attempts.assessmentId = assessment.id')
+            .where('assessment.id = :id', { id })
+            .andWhere('assessment.tenantId = :tenantId', { tenantId })
+            .orderBy('questions.order', 'ASC')
+            .addOrderBy('options.order', 'ASC')
+            .getOne();
 
             if (!assessment) {
                 throw new NotFoundException('Assessment not found');
