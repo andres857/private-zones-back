@@ -1,0 +1,28 @@
+// src/activities/games/word-search/word-search.module.ts
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { WordSearchController } from './word-search.controller';
+import { WordSearchService } from './word-search.service';
+import { WordSearchGeneratorService } from './word-search-generator.service';
+import { WordSearchGame } from './entities/word-search.entity';
+import { Activity } from '../../entities/activity.entity';
+import { TenantsModule } from 'src/tenants/tenants.module';
+import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
+
+@Module({
+    imports: [
+        TypeOrmModule.forFeature([
+            WordSearchGame,
+            Activity,
+        ]),
+        TenantsModule,
+    ],
+    controllers: [WordSearchController],
+    providers: [
+        WordSearchService,
+        WordSearchGeneratorService,
+        TenantValidationInterceptor,
+    ],
+    exports: [WordSearchService, WordSearchGeneratorService],
+})
+export class WordSearchModule { }
