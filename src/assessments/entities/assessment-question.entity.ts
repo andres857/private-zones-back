@@ -1,7 +1,8 @@
 // src/assessments/entities/assessment-question.entity.ts
 import {
     Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn,
-    ManyToOne, JoinColumn, OneToMany
+    ManyToOne, JoinColumn, OneToMany,
+    DeleteDateColumn
 } from 'typeorm';
 import { Assessment } from './assessment.entity';
 import { AssessmentQuestionOption } from './assessment-question-option.entity';
@@ -114,6 +115,9 @@ export class AssessmentQuestion {
 
     @UpdateDateColumn()
     updatedAt: Date;
+
+    @DeleteDateColumn()
+    deletedAt: Date;
 
     @OneToMany(() => AssessmentQuestionOption, option => option.question, {
         cascade: true

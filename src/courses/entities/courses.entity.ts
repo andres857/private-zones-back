@@ -20,6 +20,7 @@ import { ContentCategory } from 'src/contents/entities/courses-contents-categori
 import { Task } from '../../tasks/entities/courses-tasks.entity';
 import { Forum } from 'src/forums/entities/forum.entity';
 import { Assessment } from 'src/assessments/entities/assessment.entity';
+import { Activity } from 'src/activities/entities/activity.entity';
 
 @Entity('courses')
 export class Courses {
@@ -112,4 +113,7 @@ export class Courses {
   belongsToSection(sectionId: string): boolean {
     return this.sections?.some(section => section.id === sectionId) || false;
   }
+
+  @OneToMany(() => Activity, activity => activity.course)
+  activities: Activity[];
 }
