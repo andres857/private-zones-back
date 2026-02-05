@@ -14,7 +14,7 @@ import {
   ValidateNested,
   IsInt
 } from "class-validator";
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { TaskStatus } from "../../tasks/entities/courses-tasks.entity";
 
 export class TaskConfigDto {
@@ -74,7 +74,7 @@ export class TaskConfigDto {
 
   @IsOptional()
   @IsBoolean()
-  autoGrade?: boolean;
+  isAutoGradable?: boolean;
 
   @IsOptional()
   @IsBoolean()
@@ -159,6 +159,7 @@ export class CreateTaskDto {
 
   @IsOptional()
   @IsDateString({}, { message: 'La fecha de entrega tardía debe ser una fecha válida' })
+  @Transform(({ value }) => value === '' ? undefined : value)
   lateSubmissionDate?: string;
 
   // Calificación
@@ -235,6 +236,10 @@ export class CreateTaskDto {
 
   @IsOptional()
   metadata?: Record<string, any>;
+
+  @IsOptional()
+  @IsBoolean()
+  isAutoGradable?: boolean;
 
   // Configuración anidada
   @IsOptional()

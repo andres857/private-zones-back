@@ -211,7 +211,7 @@ export class TasksService {
                     sendReminderBeforeDue: createTaskDto.configuration.sendReminderBeforeDue ?? true,
                     reminderHoursBeforeDue: createTaskDto.configuration.reminderHoursBeforeDue ?? 24,
                     notifyOnGrade: createTaskDto.configuration.notifyOnGrade ?? true,
-                    autoGrade: createTaskDto.configuration.autoGrade ?? false,
+                    autoGrade: createTaskDto.isAutoGradable ?? false,
                     requireGradeComment: createTaskDto.configuration.requireGradeComment ?? false,
                     enableGradeRubric: createTaskDto.configuration.enableGradeRubric ?? false,
                     rubricData: createTaskDto.configuration.rubricData ?? null,
@@ -566,8 +566,8 @@ export class TasksService {
                     taskConfig.notifyOnGrade = updateTaskDto.configuration.notifyOnGrade;
                 }
 
-                if (updateTaskDto.configuration.autoGrade !== undefined) {
-                    taskConfig.autoGrade = updateTaskDto.configuration.autoGrade;
+                if (updateTaskDto.isAutoGradable !== undefined) {
+                    taskConfig.autoGrade = updateTaskDto.isAutoGradable;
                 }
 
                 if (updateTaskDto.configuration.requireGradeComment !== undefined) {

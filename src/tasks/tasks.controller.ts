@@ -14,7 +14,7 @@ export class TasksController {
     private readonly tasksService: TasksService,
   ) {}
 
-  @Post('/create/task')
+  @Post('/create')
   async createTask(
       @Req() request: AuthenticatedRequest, 
       @Body() body: CreateTaskDto
