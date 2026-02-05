@@ -12,6 +12,7 @@ import {
     UseInterceptors,
     BadRequestException,
     ParseIntPipe,
+    Delete,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { HangingService } from './hanging.service';
@@ -215,6 +216,29 @@ export class HangingController {
                 success: true,
                 message: 'Juego de ahorcado actualizado exitosamente',
                 data: hanging,
+            };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    @Delete()
+    async delete(
+        @Req() request: AuthenticatedRequest,
+        @Param('activityId') activityId: string,
+    ) {
+        try {
+            const tenantId = request.tenant?.id;
+
+            if (!tenantId) {
+                throw new BadRequestException('Tenant no validado');
+            }
+
+            await this.hangingService.delete(activityId, tenantId);
+
+            return {
+                success: true,
+                message: 'Juego de ahorcado eliminado exitosamente',
             };
         } catch (error) {
             throw error;

@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { HangingGame } from './entities/hanging.entity';
 import { Activity } from '../../entities/activity.entity';
 import { CreateHangingDto, UpdateHangingDto } from './dto/create-hanging.dto';
+import { ActivityConfiguration } from 'src/activities/entities/activity-config.entity';
 
 @Injectable()
 export class HangingService {
@@ -13,6 +14,8 @@ export class HangingService {
         private readonly hangingRepository: Repository<HangingGame>,
         @InjectRepository(Activity)
         private readonly activityRepository: Repository<Activity>,
+        @InjectRepository(ActivityConfiguration)
+        private readonly configRepository: Repository<ActivityConfiguration>,
     ) { }
 
     /**
@@ -23,18 +26,31 @@ export class HangingService {
         createDto: CreateHangingDto,
         tenantId: string,
     ): Promise<HangingGame> {
+        // 1. Validar que la actividad existe
         const activity = await this.activityRepository.findOne({
             where: { id: activityId, tenantId },
+            relations: ['configuration'], // 👈 Cargar la configuración
         });
 
         if (!activity) {
             throw new NotFoundException('Actividad no encontrada');
         }
 
-        if (!createDto.words || createDto.words.length === 0) {
-            throw new BadRequestException('Debe proporcionar al menos una palabra');
+        // 2. Validar que el tipo de actividad es correcto
+        if (activity.type !== 'hanging') {
+            throw new BadRequestException(
+                'Esta actividad no es del tipo ahorcado'
+            );
         }
 
+        // 3. Validar palabras
+        if (!createDto.words || createDto.words.length === 0) {
+            throw new BadRequestException(
+                'Debe proporcionar al menos una palabra'
+            );
+        }
+
+        // 4. Crear el juego
         const hanging = this.hangingRepository.create({
             activityId,
             words: createDto.words,
@@ -48,7 +64,57 @@ export class HangingService {
             penaltyPerHint: createDto.penaltyPerHint ?? -3,
         });
 
-        return await this.hangingRepository.save(hanging);
+        const savedHanging = await this.hangingRepository.save(hanging);
+
+        // Actualizar o crear la configuración con gameData
+        await this.updateActivityConfiguration(activity, savedHanging);
+
+        return savedHanging;
+    }
+
+    /**
+     * Actualiza la configuración de la actividad con los datos del juego
+     */
+    private async updateActivityConfiguration(
+        activity: Activity,
+        hangingGame: HangingGame,
+    ): Promise<void> {
+        const gameData = {
+            type: 'hanging',
+            gameId: hangingGame.id,
+            wordsCount: hangingGame.words.length,
+            maxAttempts: hangingGame.maxAttempts,
+            pointsPerWord: hangingGame.pointsPerWord,
+            bonusForNoErrors: hangingGame.bonusForNoErrors,
+            // Metadata adicional que quieras exponer
+            settings: {
+                caseSensitive: hangingGame.caseSensitive,
+                showCategory: hangingGame.showCategory,
+                showWordLength: hangingGame.showWordLength,
+            },
+            createdAt: hangingGame.createdAt,
+            updatedAt: hangingGame.updatedAt,
+        };
+
+        if (activity.configuration) {
+            // Si ya existe configuración, actualizar gameData
+            activity.configuration.gameData = gameData;
+            await this.configRepository.save(activity.configuration);
+        } else {
+            // Si no existe, crear nueva configuración
+            const newConfig = this.configRepository.create({
+                activityId: activity.id,
+                gameData,
+                // Valores por defecto para otros campos
+                showTimer: true,
+                showScore: true,
+                showHints: true,
+                maxHints: 3,
+                isGradable: true,
+                showFeedbackAfterCompletion: true,
+            });
+            await this.configRepository.save(newConfig);
+        }
     }
 
     /**
@@ -225,13 +291,101 @@ export class HangingService {
      */
     async update(
         activityId: string,
-        updateDto: UpdateHangingDto,
+        updateDto: UpdateHangingDto, // Puedes crear un UpdateHangingDto si necesitas
         tenantId: string,
     ): Promise<HangingGame> {
-        const hanging = await this.getByActivityId(activityId, tenantId);
+        const activity = await this.activityRepository.findOne({
+            where: { id: activityId, tenantId },
+            relations: ['configuration'],
+        });
 
-        Object.assign(hanging, updateDto);
+        if (!activity) {
+            throw new NotFoundException('Actividad no encontrada');
+        }
 
-        return await this.hangingRepository.save(hanging);
+        const hanging = await this.hangingRepository.findOne({
+            where: { activityId },
+        });
+
+        if (!hanging) {
+            throw new NotFoundException('Juego de ahorcado no encontrado');
+        }
+
+        // Actualizar el juego
+        Object.assign(hanging, {
+            words: updateDto.words ?? hanging.words,
+            maxAttempts: updateDto.maxAttempts ?? hanging.maxAttempts,
+            caseSensitive: updateDto.caseSensitive ?? hanging.caseSensitive,
+            showCategory: updateDto.showCategory ?? hanging.showCategory,
+            showWordLength: updateDto.showWordLength ?? hanging.showWordLength,
+            pointsPerWord: updateDto.pointsPerWord ?? hanging.pointsPerWord,
+            bonusForNoErrors: updateDto.bonusForNoErrors ?? hanging.bonusForNoErrors,
+            penaltyPerError: updateDto.penaltyPerError ?? hanging.penaltyPerError,
+            penaltyPerHint: updateDto.penaltyPerHint ?? hanging.penaltyPerHint,
+        });
+
+        const updatedHanging = await this.hangingRepository.save(hanging);
+
+        // 👇 Actualizar gameData
+        await this.updateActivityConfiguration(activity, updatedHanging);
+
+        return updatedHanging;
+    }
+
+    /**
+     * Obtiene el juego de ahorcado de una actividad
+     */
+    async findByActivityId(
+        activityId: string,
+        tenantId: string,
+    ): Promise<HangingGame> {
+        const activity = await this.activityRepository.findOne({
+            where: { id: activityId, tenantId },
+        });
+
+        if (!activity) {
+            throw new NotFoundException('Actividad no encontrada');
+        }
+
+        const hanging = await this.hangingRepository.findOne({
+            where: { activityId },
+        });
+
+        if (!hanging) {
+            throw new NotFoundException('Juego de ahorcado no encontrado');
+        }
+
+        return hanging;
+    }
+
+    /**
+     * Elimina el juego de ahorcado y limpia el gameData
+     */
+    async delete(activityId: string, tenantId: string): Promise<void> {
+        const activity = await this.activityRepository.findOne({
+            where: { id: activityId, tenantId },
+            relations: ['configuration'],
+        });
+
+        if (!activity) {
+            throw new NotFoundException('Actividad no encontrada');
+        }
+
+        const hanging = await this.hangingRepository.findOne({
+            where: { activityId },
+        });
+
+        if (!hanging) {
+            throw new NotFoundException('Juego de ahorcado no encontrado');
+        }
+
+        // Eliminar el juego
+        await this.hangingRepository.remove(hanging);
+
+        // Limpiar gameData de la configuración
+        if (activity.configuration) {
+            activity.configuration.gameData = null;
+            await this.configRepository.save(activity.configuration);
+        }
     }
 }

@@ -1,14 +1,26 @@
 // src/activities/games/hanging/dto/create-hanging.dto.ts
-import { IsArray, IsBoolean, IsInt, IsOptional, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class HangingWordDto {
+    @IsString()
     word: string;
+
+    @IsOptional()
+    @IsString()
     category?: string;
+
+    @IsOptional()
+    @IsString()
     clue?: string;
 }
 
 export class CreateHangingDto {
+
+    @IsOptional()
+    @IsString()
+    tenantId?: string;
+
     @IsArray()
     @ValidateNested({ each: true })
     @Type(() => HangingWordDto)

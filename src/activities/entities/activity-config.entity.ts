@@ -87,7 +87,7 @@ export class ActivityConfiguration {
         type: 'jsonb',
         default: {}
     })
-    gameData: Record<string, any>;
+    gameData: Record<string, any> | null;
 
     // Metadatos adicionales
     @Column({
