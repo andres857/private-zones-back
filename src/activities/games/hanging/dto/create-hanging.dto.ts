@@ -61,6 +61,11 @@ export class CreateHangingDto {
 }
 
 export class UpdateHangingDto {
+
+    @IsOptional()
+    @IsString()
+    tenantId?: string;
+
     @IsOptional()
     @IsArray()
     @ValidateNested({ each: true })

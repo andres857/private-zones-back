@@ -149,6 +149,11 @@ export class CreateWordSearchDto {
  * DTO para actualizar un juego de sopa de letras
  */
 export class UpdateWordSearchDto {
+
+    @IsOptional()
+    @IsString()
+    tenantId?: string;
+
     @IsOptional()
     @IsNumber()
     @Min(10)

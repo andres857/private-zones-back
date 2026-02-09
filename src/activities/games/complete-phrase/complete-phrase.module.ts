@@ -5,6 +5,7 @@ import { CompletePhraseController } from './complete-phrase.controller';
 import { CompletePhraseService } from './complete-phrase.service';
 import { CompletePhraseGame } from './entities/complete-phrase.entity';
 import { Activity } from '../../entities/activity.entity';
+import { ActivityConfiguration } from '../../entities/activity-config.entity';
 import { TenantsModule } from 'src/tenants/tenants.module';
 import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
 
@@ -13,6 +14,7 @@ import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-valida
         TypeOrmModule.forFeature([
             CompletePhraseGame,
             Activity,
+            ActivityConfiguration,
         ]),
         TenantsModule,
     ],

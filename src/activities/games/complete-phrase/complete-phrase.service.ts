@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CompletePhraseGame, BlankType } from './entities/complete-phrase.entity';
 import { Activity } from '../../entities/activity.entity';
+import { ActivityConfiguration } from '../../entities/activity-config.entity';
 import { CreateCompletePhraseDto, UpdateCompletePhraseDto } from './dto/create-complete-phrase.dto';
 
 @Injectable()
@@ -13,7 +14,51 @@ export class CompletePhraseService {
         private readonly completePhraseRepository: Repository<CompletePhraseGame>,
         @InjectRepository(Activity)
         private readonly activityRepository: Repository<Activity>,
+        @InjectRepository(ActivityConfiguration)
+        private readonly configRepository: Repository<ActivityConfiguration>,
     ) { }
+
+    /**
+     * Actualiza la configuración de la actividad con los datos del juego
+     */
+    private async updateActivityConfiguration(
+        activity: Activity,
+        completePhraseGame: CompletePhraseGame,
+    ): Promise<void> {
+        const gameData = {
+            type: 'complete_phrase',
+            gameId: completePhraseGame.id,
+            phrasesCount: completePhraseGame.phrases.length,
+            totalBlanks: completePhraseGame.phrases.reduce((sum, phrase) => sum + phrase.blanks.length, 0),
+            pointsPerBlank: completePhraseGame.pointsPerBlank,
+            bonusForPerfect: completePhraseGame.bonusForPerfect,
+            settings: {
+                caseSensitive: completePhraseGame.caseSensitive,
+                showHints: completePhraseGame.showHints,
+                shuffleOptions: completePhraseGame.shuffleOptions,
+                allowPartialCredit: completePhraseGame.allowPartialCredit,
+            },
+            createdAt: completePhraseGame.createdAt,
+            updatedAt: completePhraseGame.updatedAt,
+        };
+
+        if (activity.configuration) {
+            activity.configuration.gameData = gameData;
+            await this.configRepository.save(activity.configuration);
+        } else {
+            const newConfig = this.configRepository.create({
+                activityId: activity.id,
+                gameData,
+                showTimer: true,
+                showScore: true,
+                showHints: completePhraseGame.showHints,
+                maxHints: 3,
+                isGradable: true,
+                showFeedbackAfterCompletion: true,
+            });
+            await this.configRepository.save(newConfig);
+        }
+    }
 
     /**
      * Crea un nuevo juego de completar frases
@@ -25,10 +70,17 @@ export class CompletePhraseService {
     ): Promise<CompletePhraseGame> {
         const activity = await this.activityRepository.findOne({
             where: { id: activityId, tenantId },
+            relations: ['configuration'],
         });
 
         if (!activity) {
             throw new NotFoundException('Actividad no encontrada');
+        }
+
+        if (activity.type !== 'complete_phrase') {
+            throw new BadRequestException(
+                'Esta actividad no es del tipo completar frases'
+            );
         }
 
         if (!createDto.phrases || createDto.phrases.length === 0) {
@@ -55,7 +107,12 @@ export class CompletePhraseService {
             penaltyPerHint: createDto.penaltyPerHint ?? -2,
         });
 
-        return await this.completePhraseRepository.save(completePhrase);
+        const savedCompletePhrase = await this.completePhraseRepository.save(completePhrase);
+
+        // Actualizar configuración de la actividad
+        await this.updateActivityConfiguration(activity, savedCompletePhrase);
+
+        return savedCompletePhrase;
     }
 
     /**
@@ -308,11 +365,31 @@ export class CompletePhraseService {
         updateDto: UpdateCompletePhraseDto,
         tenantId: string,
     ): Promise<CompletePhraseGame> {
-        const completePhrase = await this.getByActivityId(activityId, tenantId);
+        const activity = await this.activityRepository.findOne({
+            where: { id: activityId, tenantId },
+            relations: ['configuration'],
+        });
+
+        if (!activity) {
+            throw new NotFoundException('Actividad no encontrada');
+        }
+
+        const completePhrase = await this.completePhraseRepository.findOne({
+            where: { activityId },
+        });
+
+        if (!completePhrase) {
+            throw new NotFoundException('Juego de completar frases no encontrado');
+        }
 
         Object.assign(completePhrase, updateDto);
 
-        return await this.completePhraseRepository.save(completePhrase);
+        const updatedCompletePhrase = await this.completePhraseRepository.save(completePhrase);
+
+        // Actualizar gameData
+        await this.updateActivityConfiguration(activity, updatedCompletePhrase);
+
+        return updatedCompletePhrase;
     }
 
     /**

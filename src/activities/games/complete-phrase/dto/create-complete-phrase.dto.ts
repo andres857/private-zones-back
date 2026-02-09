@@ -64,6 +64,11 @@ export class CompletePhraseItemDto {
 }
 
 export class CreateCompletePhraseDto {
+
+    @IsOptional()
+    @IsString()
+    tenantId?: string;
+
     @IsArray()
     @ValidateNested({ each: true })
     @Type(() => CompletePhraseItemDto)
@@ -103,6 +108,11 @@ export class CreateCompletePhraseDto {
 }
 
 export class UpdateCompletePhraseDto {
+
+    @IsOptional()
+    @IsString()
+    tenantId?: string;
+
     @IsOptional()
     @IsArray()
     @ValidateNested({ each: true })
