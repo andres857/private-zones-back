@@ -31,6 +31,11 @@ export class WordItemDto {
  * DTO para crear un juego de sopa de letras
  */
 export class CreateWordSearchDto {
+
+    @IsOptional()
+    @IsString()
+    tenantId?: string;
+
     /**
      * Ancho de la cuadrícula (10-30)
      */

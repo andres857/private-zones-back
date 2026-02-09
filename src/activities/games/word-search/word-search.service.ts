@@ -6,6 +6,7 @@ import { WordSearchGame } from './entities/word-search.entity';
 import { Activity } from '../../entities/activity.entity';
 import { WordSearchGeneratorService, GeneratedGrid } from './word-search-generator.service';
 import { CreateWordSearchDto, UpdateWordSearchDto } from './dto/create-word-search.dto';
+import { ActivityConfiguration } from 'src/activities/entities/activity-config.entity';
 
 @Injectable()
 export class WordSearchService {
@@ -14,6 +15,8 @@ export class WordSearchService {
         private readonly wordSearchRepository: Repository<WordSearchGame>,
         @InjectRepository(Activity)
         private readonly activityRepository: Repository<Activity>,
+        @InjectRepository(ActivityConfiguration)
+        private readonly configRepository: Repository<ActivityConfiguration>,
         private readonly generatorService: WordSearchGeneratorService,
     ) { }
 
@@ -25,33 +28,35 @@ export class WordSearchService {
         createDto: CreateWordSearchDto,
         tenantId: string,
     ): Promise<WordSearchGame> {
-        // Verificar que la actividad existe y pertenece al tenant
+        // 1. Validar que la actividad existe y CARGAR la configuración
         const activity = await this.activityRepository.findOne({
             where: { id: activityId, tenantId },
+            relations: ['configuration'],
         });
 
         if (!activity) {
             throw new NotFoundException('Actividad no encontrada');
         }
 
-        // Validar que hay palabras
+        // 2. Validar que el tipo de actividad es correcto
+        if (activity.type !== 'word_search') {
+            throw new BadRequestException('Esta actividad no es del tipo sopa de letras');
+        }
+
+        // 3. Validar palabras y dimensiones
         if (!createDto.words || createDto.words.length === 0) {
             throw new BadRequestException('Debe proporcionar al menos una palabra');
         }
 
-        // Validar dimensiones del grid
-        if (createDto.gridWidth < 10 || createDto.gridWidth > 30) {
-            throw new BadRequestException('El ancho del grid debe estar entre 10 y 30');
+        if (createDto.gridWidth < 10 || createDto.gridWidth > 30 || 
+            createDto.gridHeight < 10 || createDto.gridHeight > 30) {
+            throw new BadRequestException('Dimensiones del grid inválidas (10-30)');
         }
 
-        if (createDto.gridHeight < 10 || createDto.gridHeight > 30) {
-            throw new BadRequestException('El alto del grid debe estar entre 10 y 30');
-        }
-
-        // Crear el juego (el seed se genera automáticamente si no se proporciona)
+        // 4. Crear el juego
         const wordSearch = this.wordSearchRepository.create({
             activityId,
-            seed: createDto.seed, // Usar seed personalizado si se proporciona
+            seed: createDto.seed,
             gridWidth: createDto.gridWidth,
             gridHeight: createDto.gridHeight,
             words: createDto.words,
@@ -65,8 +70,53 @@ export class WordSearchService {
             penaltyPerHint: createDto.penaltyPerHint ?? -2,
         });
 
-        // Guardar y retornar
-        return await this.wordSearchRepository.save(wordSearch);
+        const savedWordSearch = await this.wordSearchRepository.save(wordSearch);
+
+        // 5. Sincronizar con la configuración de la actividad 🚀
+        await this.updateActivityConfiguration(activity, savedWordSearch);
+
+        return savedWordSearch;
+    }
+
+    private async updateActivityConfiguration(
+        activity: Activity,
+        wordSearch: WordSearchGame,
+    ): Promise<void> {
+        const gameData = {
+            type: 'word_search',
+            gameId: wordSearch.id,
+            wordsCount: wordSearch.words.length,
+            dimensions: `${wordSearch.gridWidth}x${wordSearch.gridHeight}`,
+            pointsPerWord: wordSearch.pointsPerWord,
+            // Settings específicos para el frontend
+            settings: {
+                caseSensitive: wordSearch.caseSensitive,
+                showWordList: wordSearch.showWordList,
+                showClues: wordSearch.showClues,
+                allowedDirections: wordSearch.allowedDirections,
+            },
+            createdAt: wordSearch.createdAt,
+            updatedAt: wordSearch.updatedAt,
+        };
+
+        if (activity.configuration) {
+            // Actualizar configuración existente
+            activity.configuration.gameData = gameData;
+            await this.configRepository.save(activity.configuration);
+        } else {
+            // Crear configuración desde cero
+            const newConfig = this.configRepository.create({
+                activityId: activity.id,
+                gameData,
+                showTimer: true,
+                showScore: true,
+                showHints: true,
+                maxHints: 3,
+                isGradable: true,
+                showFeedbackAfterCompletion: true,
+            });
+            await this.configRepository.save(newConfig);
+        }
     }
 
     /**
