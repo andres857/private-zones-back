@@ -8,12 +8,14 @@ import { WordSearchGame } from './entities/word-search.entity';
 import { Activity } from '../../entities/activity.entity';
 import { TenantsModule } from 'src/tenants/tenants.module';
 import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
+import { ActivityConfiguration } from 'src/activities/entities/activity-config.entity';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([
             WordSearchGame,
             Activity,
+            ActivityConfiguration
         ]),
         TenantsModule,
     ],
