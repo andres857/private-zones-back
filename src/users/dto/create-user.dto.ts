@@ -25,7 +25,7 @@ import { DocumentType } from '../entities/user-profile-config.entity';
 export class UpdateUserProfileConfigDto {
   @IsOptional()
   @IsString({ message: 'bio debe ser string' })
-  @Length(1, 500, { message: 'bio debe tener entre 1 y 500 caracteres' })
+  // @Length(1, 500, { message: 'bio debe tener entre 1 y 500 caracteres' })
   bio?: string;
 
   @IsOptional()
@@ -37,28 +37,28 @@ export class UpdateUserProfileConfigDto {
   @IsEnum(DocumentType, {
     message: 'Tipo de documento debe ser un valor válido'
   })
-  type_document?: DocumentType;
+  type_document?: DocumentType ;
 
   @IsOptional()
   @IsString({ message: 'documentNumber debe ser string' })
-  @Length(1, 50, { message: 'documentNumber debe tener entre 1 y 50 caracteres' })
+  // @Length(1, 50, { message: 'documentNumber debe tener entre 1 y 50 caracteres' })
   documentNumber?: string;
 
   @IsOptional()
   @IsString({ message: 'organization debe ser string' })
-  @Length(1, 100, { message: 'organization debe tener entre 1 y 100 caracteres' })
+  // @Length(1, 100, { message: 'organization debe tener entre 1 y 100 caracteres' })
   organization?: string;
 
   @IsOptional()
   @IsString({ message: 'charge debe ser string' })
-  @Length(1, 100, { message: 'charge debe tener entre 1 y 100 caracteres' })
+  // @Length(1, 100, { message: 'charge debe tener entre 1 y 100 caracteres' })
   charge?: string;
 
   @IsOptional()
   @IsString({ message: 'gender debe ser string' })
-  @IsEnum(['MASCULINO', 'FEMENINO', 'OTRO', 'PREFIERO_NO_DECIR'], {
-    message: 'Género debe ser: MASCULINO, FEMENINO, OTRO o PREFIERO_NO_DECIR'
-  })
+  // @IsEnum(['MASCULINO', 'FEMENINO', 'OTRO', 'PREFIERO_NO_DECIR'], {
+  //   message: 'Género debe ser: MASCULINO, FEMENINO, OTRO o PREFIERO_NO_DECIR'
+  // })
   gender?: string;
 
   @IsOptional()
@@ -125,6 +125,11 @@ export class UpdateUserNotificationConfigDto {
 }
 
 export class UpdateUserDto {
+
+  @IsOptional()
+  @IsString({ message: 'El ID debe ser un texto' })
+  tenantId?: string;
+
   @IsOptional()
   @IsString({ message: 'El nombre debe ser un texto' })
   @Length(2, 50, { message: 'El nombre debe tener entre 2 y 50 caracteres' })
@@ -138,6 +143,12 @@ export class UpdateUserDto {
   @IsOptional()
   @IsEmail({}, { message: 'El email debe tener un formato válido' })
   email?: string;
+
+  // @IsNotEmpty({ message: 'La contraseña es requerida' })
+  @IsOptional()
+  @IsString({ message: 'La contraseña debe ser un texto' })
+  // @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
+  password?: string;
 
   // Nota: Para actualizar contraseña, considera crear un endpoint separado por seguridad
   // @IsOptional()
@@ -210,14 +221,14 @@ export class CreateUserProfileConfigDto {
   @IsOptional()
   @IsString({ message: 'charge debe ser string' })
   @Length(1, 100, { message: 'charge debe tener entre 1 y 100 caracteres' })
-  charge?: string;
+  charge?: string | null;
 
   @IsOptional()
   @IsString({ message: 'gender debe ser string' })
   @IsEnum(['MASCULINO', 'FEMENINO', 'OTRO', 'PREFIERO_NO_DECIR'], {
     message: 'Género debe ser: MASCULINO, FEMENINO, OTRO o PREFIERO_NO_DECIR'
   })
-  gender?: string;
+  gender?: string | null;
 
   @IsOptional()
   @IsString({ message: 'city debe ser string' })

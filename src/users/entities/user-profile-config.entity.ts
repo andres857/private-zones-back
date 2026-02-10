@@ -36,41 +36,42 @@ export class UserProfileConfig {
     avatarPath: string;
 
     @Column({ nullable: true })
-    bio: string;
+    bio?: string;
 
     @Column({ nullable: true })
-    phoneNumber: string;
+    phoneNumber?: string;
 
     @Column({
         type: 'enum',
         enum: DocumentType,
         nullable: true,
     })
-    type_document: DocumentType; // Tipo de documento (DNI, Pasaporte, etc.)
+    type_document?: DocumentType; // Tipo de documento (DNI, Pasaporte, etc.)
 
     @Column({ nullable: true })
-    documentNumber: string; // Número de documento de identificación
+    documentNumber?: string; // Número de documento de identificación
 
     @Column({ nullable: true })
-    organization: string; // Nombre de la organización o empresa
+    organization?: string; // Nombre de la organización o empresa
 
     @Column({ nullable: true })
-    charge: string; // Cargo o puesto en la organización
+    charge?: string; // Cargo o puesto en la organización
+
 
     @Column({ nullable: true })
-    gender: string; // Género del usuario (Masculino, Femenino, Otro)
+    gender?: string; // Género del usuario (Masculino, Femenino, Otro)
 
     @Column({ nullable: true })
-    city: string; // Ciudad de residencia
+    city?: string; // Ciudad de residencia
 
     @Column({ nullable: true })
-    country: string; // País de residencia
+    country?: string; // País de residencia
 
     @Column({ nullable: true })
-    address: string; // Dirección física del usuario
+    address?: string; // Dirección física del usuario
 
     @Column({ nullable: true })
-    dateOfBirth: Date;
+    dateOfBirth?: Date;
 
     @CreateDateColumn()
     createdAt: Date;

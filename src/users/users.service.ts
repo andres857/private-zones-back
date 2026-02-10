@@ -33,7 +33,7 @@ export class UsersService {
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
     // Verificar que el usuario existe
     const existingUser = await this.usersRepository.findOne({
-      where: { id },
+      where: { id, tenantId: updateUserDto.tenantId },
       relations: ['roles', 'profileConfig', 'notificationConfig']
     });
 
@@ -71,13 +71,16 @@ export class UsersService {
 
     // Actualizar configuración del perfil si se proporciona
     if (updateUserDto.profileConfig) {
+      // Limpiar campos vacíos, null, undefined del profileConfig
+      const cleanedProfileConfig = this.cleanEmptyFields(updateUserDto.profileConfig);
+      
       if (existingUser.profileConfig) {
-        // Actualizar configuración existente
-        Object.assign(existingUser.profileConfig, updateUserDto.profileConfig);
+        // Actualizar configuración existente solo con campos válidos
+        Object.assign(existingUser.profileConfig, cleanedProfileConfig);
       } else {
-        // Crear nueva configuración
+        // Crear nueva configuración solo con campos válidos
         const newProfileConfig = this.userProfileConfigRepository.create({
-          ...updateUserDto.profileConfig,
+          ...cleanedProfileConfig,
           user: existingUser
         });
         existingUser.profileConfig = newProfileConfig;
@@ -99,12 +102,48 @@ export class UsersService {
       }
     }
 
+    // ✅ Hashear la contraseña si se proporciona
+    if (updateUserDto.password) {
+      const bcrypt = require('bcrypt');
+      const saltRounds = 10;
+      existingUser.password = await bcrypt.hash(updateUserDto.password, saltRounds);
+    }
+
     // Actualizar campos principales del usuario (excluyendo roleIds y configuraciones que ya se manejaron)
-    const { roleIds, profileConfig, notificationConfig, ...userUpdates } = updateUserDto;
+    const { password, roleIds, profileConfig, notificationConfig, ...userUpdates } = updateUserDto;
     Object.assign(existingUser, userUpdates);
 
     // Guardar y retornar
     return await this.usersRepository.save(existingUser);
+  }
+
+  // ✅ Método helper para limpiar campos vacíos
+  private cleanEmptyFields<T extends Record<string, any>>(obj: T): Partial<T> {
+    const cleaned: any = {};
+    
+    for (const key in obj) {
+      const value = obj[key];
+      
+      // Saltar valores null, undefined o strings vacíos
+      if (value === null || value === undefined || value === '') {
+        continue;
+      }
+      
+      // Para campos de fecha, validar que sean fechas válidas
+      if (key.toLowerCase().includes('date') || key === 'dateOfBirth') {
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          cleaned[key] = value;
+        }
+        // Si la fecha es inválida, se omite (no se incluye en cleaned)
+        continue;
+      }
+      
+      // Incluir el valor si pasó las validaciones
+      cleaned[key] = value;
+    }
+    
+    return cleaned;
   }
 
   async create(createUserDto: CreateUserDto, roleEntities?: Role[]): Promise<User> {
