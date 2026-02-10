@@ -53,8 +53,11 @@ async function bootstrap() {
       return;
     }
     
-    // Permitir cualquier dominio que termine con klmsystem.online o klmsystem.com
-    if (origin && origin.match(/https?:\/\/.*\.?klmsystem\.(online|com)$/)) {
+    // Permitir cualquier dominio que termine con klmsystem.online, klmsystem.com o kalmsystem.com
+    if (
+      origin &&
+      origin.match(/https?:\/\/.*\.?(klmsystem|kalmsystem)\.(online|com)$/)
+    ) {
       callback(null, true);
       return;
     }
