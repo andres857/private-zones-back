@@ -148,6 +148,7 @@ export class HangingService {
         tenantId: string,
         wordIndex?: number,
     ): Promise<{
+        word: string;
         wordLength: number;
         category?: string;
         maxAttempts: number;
@@ -167,6 +168,7 @@ export class HangingService {
         const selectedWord = hanging.words[index];
 
         return {
+            word: selectedWord.word,
             wordLength: selectedWord.word.length,
             category: hanging.showCategory ? selectedWord.category : undefined,
             maxAttempts: hanging.maxAttempts,
@@ -174,6 +176,18 @@ export class HangingService {
             hasMultipleWords: hanging.words.length > 1,
             totalWords: hanging.words.length,
         };
+    }
+
+    private normalizeText(text: string): string {
+        // Preservar la Ñ
+        const textWithPlaceholder = text.replace(/[ñÑ]/g, '█');
+        
+        const normalized = textWithPlaceholder
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+        
+        // Restaurar la Ñ y convertir a minúsculas si no es case sensitive
+        return normalized.replace(/█/g, 'ñ');
     }
 
     /**
@@ -201,12 +215,12 @@ export class HangingService {
 
         const targetWord = hanging.words[wordIndex].word;
         const normalizedTarget = hanging.caseSensitive 
-            ? targetWord 
-            : targetWord.toLowerCase();
+        ? targetWord 
+        : this.normalizeText(targetWord).toLowerCase();
 
         const normalizedGuesses = hanging.caseSensitive
-            ? guessedLetters
-            : guessedLetters.map(l => l.toLowerCase());
+        ? guessedLetters
+        : guessedLetters.map(l => this.normalizeText(l).toLowerCase());
 
         // Letras únicas de la palabra objetivo
         const targetLetters = new Set(normalizedTarget.split('').filter(l => l.trim() !== ''));

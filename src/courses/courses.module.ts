@@ -22,9 +22,12 @@ import { CourseTranslation } from './entities/courses-translations.entity';
 import { CoursesViewsConfig } from './entities/courses-view-config.entity';
 import { TaskConfig } from '../tasks/entities/courses-tasks-config.entity';
 import { TaskSubmission } from '../tasks/entities/courses-tasks-submissions.entity';
+import { Activity } from 'src/activities/entities/activity.entity';
+import { ActivityConfiguration } from 'src/activities/entities/activity-config.entity';
+import { ActivityTranslation } from 'src/activities/entities/activity-translation.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Courses, CourseModule, ContentItem, Forum, Task, Quiz, Survey, UserCourseProgress, UserModuleProgress, UserItemProgress, ModuleItem, CoursesUsers, CourseTranslation, CoursesViewsConfig, TaskConfig, TaskSubmission]), TenantsModule],
+  imports: [TypeOrmModule.forFeature([Courses, CourseModule, ContentItem, Forum, Task, Quiz, Survey, UserCourseProgress, UserModuleProgress, UserItemProgress, ModuleItem, CoursesUsers, CourseTranslation, CoursesViewsConfig, TaskConfig, TaskSubmission, Activity, ActivityConfiguration, ActivityTranslation]), TenantsModule],
   controllers: [CoursesController],
   providers: [CoursesService, TenantValidationInterceptor],
   exports: [CoursesService, TypeOrmModule],

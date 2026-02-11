@@ -21,6 +21,7 @@ import { FindAllCoursesParams, PaginatedCoursesResponse } from './interfaces/cou
 import { CourseConfiguration } from './entities/courses-config.entity';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { TaskConfig } from '../tasks/entities/courses-tasks-config.entity';
+import { Activity } from 'src/activities/entities/activity.entity';
 
 @Injectable()
 export class CoursesService {
@@ -45,6 +46,8 @@ export class CoursesService {
         private readonly quizRepository: Repository<Quiz>,
         @InjectRepository(Survey)
         private readonly surveyRepository: Repository<Survey>,
+        @InjectRepository(Activity)
+        private readonly activityRepository: Repository<Activity>,
         @InjectRepository(ModuleItem)
         private readonly moduleItemRepository: Repository<ModuleItem>,
         @InjectRepository(CourseTranslation)
@@ -598,8 +601,23 @@ export class CoursesService {
                         break;
 
                     case ModuleItemType.ACTIVITY:
-                        // Si tienes una entidad Activity, agrégala aquí
-                        console.warn(`Tipo ACTIVITY no implementado aún`);
+                        entities = await this.activityRepository.find({
+                            where: {
+                                id: In(referenceIds),
+                                tenantId,
+                                translations: {
+                                    languageCode: 'es' 
+                                }
+                            },
+                            relations: ['translations'],
+                        });
+
+                        entities = entities.map(activity => ({
+                            id: activity.id,
+                            tenantId: activity.tenantId,
+                            title: activity.getTranslatedTitle('es'),
+                            description: activity.translations?.[0]?.description || ''
+                        }));
                         break;
 
                     default:
@@ -813,10 +831,6 @@ export class CoursesService {
                                     }
                                 }
                             }
-
-                            // console.log('itemmmm:', referencedEntity);
-                            // console.log('itemmmm2:', item);
-
 
                             // Los datos reales vienen de la entidad referenciada
                             const itemData = {
