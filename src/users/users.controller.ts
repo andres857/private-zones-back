@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, ParseIntPipe, Delete, Query, Patch, ParseUUIDPipe, Logger, UseGuards, Req, Put } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, ParseIntPipe, Delete, Query, Patch, ParseUUIDPipe, Logger, UseGuards, Req, Put, UseInterceptors } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto } from './dto/create-user.dto';
 import { User } from './entities/user.entity';
@@ -6,10 +6,13 @@ import { AssignRolesDto } from 'src/roles/dto/assign-roles.dto';
 import { FilterUsersDto, UserListResponseDto, UserStatsDto } from './dto/filter-users.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
+import { AuthGuard } from '@nestjs/passport';
 // import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
 @Controller('users')
-// @UseGuards(JwtAuthGuard)
+@UseGuards(AuthGuard('jwt'))
+@UseInterceptors(TenantValidationInterceptor)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
   

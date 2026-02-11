@@ -9,11 +9,13 @@ import { UserNotificationConfig } from './entities/user-notification-config.enti
 import { UserProfileConfig } from './entities/user-profile-config.entity';
 import { UserConfig } from './entities/user-config.entity';
 import { Tenant } from 'src/tenants/entities/tenant.entity';
+import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
+import { TenantsModule } from 'src/tenants/tenants.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Role, UserConfig, UserProfileConfig, UserNotificationConfig, Tenant])],
+  imports: [TypeOrmModule.forFeature([User, Role, UserConfig, UserProfileConfig, UserNotificationConfig, Tenant]), TenantsModule],
   controllers: [UsersController],
-  providers: [UsersService],
+  providers: [UsersService, TenantValidationInterceptor],
   exports: [UsersService],
 })
 export class UsersModule {}
