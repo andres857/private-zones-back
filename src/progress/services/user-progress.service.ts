@@ -1,7 +1,7 @@
 // src/progress/services/user-progress.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { UserCourseProgress, CourseStatus } from '../entities/user-course-progress.entity';
 import { UserModuleProgress, ModuleStatus } from '../entities/user-module-progress.entity';
 import { UserItemProgress, ItemStatus } from '../entities/user-item-progress.entity';
@@ -28,6 +28,7 @@ export interface ProgressSummary {
 
 export interface ItemCompletionData {
   score?: number;
+  percentage?: number;
   timeSpent?: number;
   responses?: Record<string, any>;
   metadata?: Record<string, any>;
@@ -167,18 +168,42 @@ export class UserProgressService {
   }
 
   /**
+   * Resuelve el id real de ModuleItem a partir de un referenceId y tipo.
+   * Útil cuando el controller solo tiene el id del recurso (actividad, quiz, etc.)
+   */
+  async resolveItemId(referenceId: string, type: ModuleItemType): Promise<string> {
+    const moduleItem = await this.itemRepo.findOne({
+      where: { referenceId, type },
+      select: ['id'], // solo traemos lo necesario
+    });
+
+    if (!moduleItem) {
+      throw new NotFoundException(
+          `No se encontró un ModuleItem de tipo "${type}" con referenceId "${referenceId}"`,
+      );
+    }
+    
+    return moduleItem.id;
+  }
+
+  /**
    * Marca un item como completado y actualiza el progreso en cascada
    */
   async completeItem(
     userId: string, 
     itemId: string, 
-    completionData: ItemCompletionData = {}
+    completionData: ItemCompletionData = {},
+    percentage?: number,
+    metadata?: Record<string, any>
   ): Promise<void> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
+
+      console.log('Completing item', { userId, itemId, completionData, percentage, metadata });
+
       // Actualizar progreso del item
       const itemProgress = await queryRunner.manager.findOne(UserItemProgress, {
         where: { userId, itemId },
@@ -186,6 +211,7 @@ export class UserProgressService {
       });
 
       if (!itemProgress) {
+
         throw new NotFoundException('Item progress not found');
       }
 
@@ -198,7 +224,11 @@ export class UserProgressService {
         itemProgress.score = completionData.score;
         itemProgress.updateBestScore(completionData.score);
       }
-      
+
+      if (percentage !== undefined) {
+        itemProgress.updateBestProgress(percentage);
+      }
+
       if (completionData.timeSpent !== undefined) {
         itemProgress.timeSpent += completionData.timeSpent;
       }
@@ -220,7 +250,7 @@ export class UserProgressService {
       const module = await queryRunner.manager.findOne(CourseModule, {
         where: { id: itemProgress.item.module.id }
       });
-
+      
       if (!module) {
         throw new NotFoundException('Module not found');
       }
@@ -251,48 +281,48 @@ export class UserProgressService {
   private async updateModuleProgress(
     userId: string, 
     moduleId: string, 
-    manager?: any
+    manager?: EntityManager
   ): Promise<void> {
-    const repo = manager || this.moduleProgressRepo;
-    const itemRepo = manager ? manager.getRepository(UserItemProgress) : this.itemProgressRepo;
-
-    const moduleProgress = await repo.findOne({
-      where: { userId, moduleId }
-    });
+    const moduleProgress = manager
+      ? await manager.findOne(UserModuleProgress, { where: { userId, moduleId } })
+      : await this.moduleProgressRepo.findOne({ where: { userId, moduleId } });
 
     if (!moduleProgress) return;
 
-    // Obtener progreso de todos los items del módulo
-    const itemProgresses = await itemRepo
-    .createQueryBuilder('itemProgress')
-    .leftJoinAndSelect('itemProgress.item', 'item')
-    .where('itemProgress.userId = :userId', { userId })
-    .andWhere('item.moduleId = :moduleId', { moduleId })
-    .getMany();
+    const itemProgresses = manager
+      ? await manager
+          .createQueryBuilder(UserItemProgress, 'itemProgress')
+          .leftJoinAndSelect('itemProgress.item', 'item')
+          .where('itemProgress.userId = :userId', { userId })
+          .andWhere('item.moduleId = :moduleId', { moduleId })
+          .getMany()
+      : await this.itemProgressRepo
+          .createQueryBuilder('itemProgress')
+          .leftJoinAndSelect('itemProgress.item', 'item')
+          .where('itemProgress.userId = :userId', { userId })
+          .andWhere('item.moduleId = :moduleId', { moduleId })
+          .getMany();
 
     const completedItems = itemProgresses.filter(ip => ip.isCompleted()).length;
     const totalItems = itemProgresses.length;
     
-    // Calcular progreso y puntuación promedio
     const progressPercentage = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
     const scores = itemProgresses
       .filter(ip => ip.score !== null)
       .map(ip => ip.score);
-    const averageScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+    const averageScore = scores.length > 0 
+      ? scores.reduce((a, b) => a + b, 0) / scores.length 
+      : 0;
 
-    // Determinar estado del módulo
     let status = ModuleStatus.NOT_STARTED;
     if (completedItems > 0 && completedItems < totalItems) {
       status = ModuleStatus.IN_PROGRESS;
     } else if (completedItems === totalItems && totalItems > 0) {
       status = ModuleStatus.COMPLETED;
       moduleProgress.completed_at = new Date();
-      
-      // Registrar actividad de módulo completado
       await this.logActivity(userId, ActivityType.MODULE_COMPLETED, moduleId, 'module');
     }
 
-    // Actualizar progreso del módulo
     moduleProgress.status = status;
     moduleProgress.progressPercentage = progressPercentage;
     moduleProgress.scorePercentage = averageScore;
@@ -300,7 +330,12 @@ export class UserProgressService {
     moduleProgress.totalItems = totalItems;
     moduleProgress.lastAccessedAt = new Date();
 
-    await repo.save(moduleProgress);
+    // ✅ Usar manager.save() o el repositorio según corresponda
+    if (manager) {
+      await manager.save(UserModuleProgress, moduleProgress);
+    } else {
+      await this.moduleProgressRepo.save(moduleProgress);
+    }
   }
 
   /**
@@ -309,55 +344,52 @@ export class UserProgressService {
   private async updateCourseProgress(
     userId: string, 
     courseId: string, 
-    manager?: any
+    manager?: EntityManager
   ): Promise<void> {
-    const repo = manager || this.courseProgressRepo;
-    const moduleRepo = manager ? manager.getRepository(UserModuleProgress) : this.moduleProgressRepo;
-
-    const courseProgress = await repo.findOne({
-      where: { userId, courseId }
-    });
+    const courseProgress = manager
+      ? await manager.findOne(UserCourseProgress, { where: { userId, courseId } })
+      : await this.courseProgressRepo.findOne({ where: { userId, courseId } });
 
     if (!courseProgress) return;
 
-    // Obtener progreso de todos los módulos del curso
-    const moduleProgresses = await moduleRepo
-    .createQueryBuilder('moduleProgress')
-    .leftJoinAndSelect('moduleProgress.module', 'module')
-    .where('moduleProgress.userId = :userId', { userId })
-    .andWhere('module.courseId = :courseId', { courseId })
-    .getMany();
-
+    const moduleProgresses = manager
+      ? await manager
+          .createQueryBuilder(UserModuleProgress, 'moduleProgress')
+          .leftJoinAndSelect('moduleProgress.module', 'module')
+          .where('moduleProgress.userId = :userId', { userId })
+          .andWhere('module.courseId = :courseId', { courseId })
+          .getMany()
+      : await this.moduleProgressRepo
+          .createQueryBuilder('moduleProgress')
+          .leftJoinAndSelect('moduleProgress.module', 'module')
+          .where('moduleProgress.userId = :userId', { userId })
+          .andWhere('module.courseId = :courseId', { courseId })
+          .getMany();
 
     const completedModules = moduleProgresses.filter(mp => mp.isCompleted()).length;
     const totalModules = moduleProgresses.length;
 
-    // Calcular items completados
     const totalItemsCompleted = moduleProgresses.reduce((acc, mp) => acc + mp.itemsCompleted, 0);
     const totalItems = moduleProgresses.reduce((acc, mp) => acc + mp.totalItems, 0);
 
     const progressPercentage = totalItems > 0 ? (totalItemsCompleted / totalItems) * 100 : 0;
     
-    // Calcular puntuación promedio del curso
     const moduleScores = moduleProgresses
       .filter(mp => mp.scorePercentage > 0)
       .map(mp => mp.scorePercentage);
-    const averageScore = moduleScores.length > 0 ? 
-      moduleScores.reduce((a, b) => a + b, 0) / moduleScores.length : 0;
+    const averageScore = moduleScores.length > 0 
+      ? moduleScores.reduce((a, b) => a + b, 0) / moduleScores.length 
+      : 0;
 
-    // Determinar estado del curso
     let status = CourseStatus.NOT_STARTED;
     if (totalItemsCompleted > 0 && completedModules < totalModules) {
       status = CourseStatus.IN_PROGRESS;
     } else if (completedModules === totalModules && totalModules > 0) {
       status = CourseStatus.COMPLETED;
       courseProgress.completed_at = new Date();
-      
-      // Registrar actividad de curso completado
       await this.logActivity(userId, ActivityType.COURSE_COMPLETED, courseId, 'course');
     }
 
-    // Actualizar progreso del curso
     courseProgress.status = status;
     courseProgress.progressPercentage = progressPercentage;
     courseProgress.scorePercentage = averageScore;
@@ -365,7 +397,11 @@ export class UserProgressService {
     courseProgress.totalItemsCompleted = totalItemsCompleted;
     courseProgress.lastAccessedAt = new Date();
 
-    await repo.save(courseProgress);
+    if (manager) {
+      await manager.save(UserCourseProgress, courseProgress);
+    } else {
+      await this.courseProgressRepo.save(courseProgress);
+    }
   }
 
   /**
@@ -893,15 +929,30 @@ export class UserProgressService {
     };
   }
 
-  async startItemProgress(contentId: string, userId: string): Promise<UserItemProgress> {
-    // Encontrar el ModuleItem que referencia este contenido
+  async startItemProgress(contentId: string, userId: string, itemType: ModuleItemType = ModuleItemType.CONTENT): Promise<UserItemProgress> {
+    // Validar que el tipo sea soportado para registro de progreso
+    const supportedTypes = [
+      ModuleItemType.CONTENT,
+      ModuleItemType.ACTIVITY,
+      ModuleItemType.QUIZ,
+      ModuleItemType.TASK,
+      ModuleItemType.FORUM,
+    ];
+
+    if (!supportedTypes.includes(itemType)) {
+      throw new BadRequestException(
+        `El tipo "${itemType}" no soporta registro de progreso`,
+      );
+    }
+
+    // Buscar el ModuleItem usando el tipo recibido
     const moduleItem = await this.itemRepo.findOne({
-      where: { referenceId: contentId, type: ModuleItemType.CONTENT },
-      relations: ['module', 'module.course']
+      where: { referenceId: contentId, type: itemType },
+      relations: ['module', 'module.course'],
     });
 
     if (!moduleItem) {
-      throw new Error('Module item not found for this content');
+      throw new Error(`Module item de tipo "${itemType}" no encontrado para este contenido`);
     }
 
     // Verificar si ya existe progreso

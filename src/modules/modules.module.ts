@@ -8,6 +8,11 @@ import { TenantsModule } from 'src/tenants/tenants.module';
 import { CourseModule } from 'src/courses/entities/courses-modules.entity';
 import { CourseModuleConfig } from 'src/courses/entities/courses-modules-config.entity';
 import { ContentItem } from 'src/contents/entities/courses-contents.entity';
+import { Forum } from 'src/forums/entities/forum.entity';
+import { Task } from 'src/tasks/entities/courses-tasks.entity';
+import { Assessment } from 'src/assessments/entities/assessment.entity';
+import { Activity } from 'src/activities/entities/activity.entity';
+import { ModuleItem } from 'src/courses/entities/courses-modules-item.entity';
 
 @Module({
   imports: [
@@ -15,7 +20,12 @@ import { ContentItem } from 'src/contents/entities/courses-contents.entity';
       Courses,
       CourseModule,
       CourseModuleConfig,
-      ContentItem
+      ContentItem,
+      Forum,
+      Task,
+      Assessment,
+      Activity,
+      ModuleItem
     ]),
     TenantsModule,
   ],

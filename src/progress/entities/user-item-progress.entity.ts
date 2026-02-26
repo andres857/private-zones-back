@@ -95,4 +95,10 @@ export class UserItemProgress {
       this.bestScore = newScore;
     }
   }
+
+  updateBestProgress(newPercentage: number): void {
+    if (newPercentage > this.progressPercentage) {
+      this.progressPercentage = newPercentage;
+    }
+  }
 }
