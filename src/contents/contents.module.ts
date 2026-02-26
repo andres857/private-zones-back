@@ -11,6 +11,7 @@ import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-valida
 import { TenantsModule } from 'src/tenants/tenants.module';
 import { UsersProgressModule } from 'src/progress/user-progress.module';
 import { ContentCategory } from './entities/courses-contents-categories.entity';
+import { StorageModule } from 'src/storage/storage.module';
 
 @Module({
   imports: [
@@ -22,7 +23,8 @@ import { ContentCategory } from './entities/courses-contents-categories.entity';
       Courses,
     ]),
     TenantsModule,
-    UsersProgressModule
+    UsersProgressModule,
+    StorageModule,
   ],
   controllers: [ContentsController],
   providers: [ContentsService, TenantValidationInterceptor],

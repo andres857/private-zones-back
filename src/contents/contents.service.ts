@@ -30,6 +30,18 @@ export class ContentsService {
     private contentCategory: Repository<ContentCategory>
   ) {}
 
+  async findOne(contentId: string, tenantId: string): Promise<ContentItem> {
+    const content = await this.contentRepository.findOne({
+      where: { id: contentId, tenantId }
+    });
+
+    if (!content) {
+      throw new NotFoundException('Content not found');
+    }
+
+    return content;
+  }
+
   async getById(
     contentId: string, 
     options: GetContentOptions, 

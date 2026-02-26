@@ -1,5 +1,5 @@
 // src/contents/contents.controller.ts
-import { Controller, Get, Param, Query, UseGuards, Req, UseInterceptors, Post, Body, DefaultValuePipe, ParseIntPipe, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards, Req, UseInterceptors, Post, Body, DefaultValuePipe, ParseIntPipe, BadRequestException, InternalServerErrorException, UploadedFile, NotFoundException } from '@nestjs/common';
 import { ContentsService } from './contents.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Request } from 'express';
@@ -7,6 +7,11 @@ import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-valida
 import { AuthenticatedRequest } from 'src/common/enums/types/request.types';
 import { UserProgressService } from '../progress/services/user-progress.service';
 import { CreateCategoryDto } from './dto/contents.dto';
+import { ContentType, StorageService } from 'src/storage/storage.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { CurrentUser } from 'src/auth/decorators/user.decorator';
+import { ALLOWED_MIMES, FILE_SIZE_LIMITS } from './constants/storage.constants';
 
 export interface GetContentOptions {
     includeCourse?: boolean;
@@ -21,8 +26,119 @@ export interface GetContentOptions {
 export class ContentsController {
     constructor(
         private readonly contentsService: ContentsService,
-        private readonly progressService: UserProgressService
+        private readonly progressService: UserProgressService,
+        private readonly storageService: StorageService,
     ) { }
+
+
+    @Get(':contentId/signed-url')
+    async getSignedUrl(
+        @Param('contentId') contentId: string,
+        @Req() req: any,
+    ) {
+        const tenantId = req.tenant?.id;
+        const content = await this.contentsService.findOne(contentId, tenantId);
+
+        if (!content) {
+            throw new NotFoundException('Contenido no encontrado');
+        }
+
+        // Si es embed o URL externa, devolver tal cual
+        if (content.contentType === 'embed' || content.contentUrl.startsWith('http') === false) {
+            return { url: content.contentUrl, signed: false };
+        }
+
+        // Extraer el key del archivo desde la URL guardada
+        const key = this.storageService.extractKeyFromUrl(content.contentUrl);
+
+        // Públicos: URL del CDN directamente
+        // Privados: URL firmada que expira en 1 hora
+        const isPrivate = key.startsWith('private/');
+        const url = isPrivate
+            ? await this.storageService.getSignedUrl(key, 3600)
+            : content.contentUrl;
+
+        return {
+            url,
+            signed: isPrivate,
+            expiresIn: isPrivate ? 3600 : null,
+            contentType: content.contentType,
+        };
+    }
+
+    // ──────────────────────────────────────────────
+    // POST /contents/upload
+    // Sube un archivo y devuelve la URL. 
+    // Usar esto ANTES de crear el contenido.
+    // ──────────────────────────────────────────────
+    @Post('upload')
+    @UseInterceptors(
+        FileInterceptor('file', {
+        storage: memoryStorage(), // Guardar en memoria, no en disco
+        limits: { fileSize: 500 * 1024 * 1024 }, // 500MB máx global
+        }),
+    )
+    async uploadFile(
+        @UploadedFile() file: Express.Multer.File,
+        @Body('contentType') contentType: ContentType,
+        @Body('courseId') courseId: string,
+        @CurrentUser() user: any,
+        @Req() req: any,
+    ) {
+        if (!file) {
+            throw new BadRequestException('No se proporcionó ningún archivo');
+        }
+
+        if (!contentType) {
+            throw new BadRequestException('El tipo de contenido es requerido');
+        }
+
+        const tenantSlug = req.tenant?.slug || user.tenantSlug;
+        
+        if (!tenantSlug) {
+            throw new BadRequestException('Tenant no identificado');
+        }
+
+        // Validar tamaño por tipo
+        const maxSize = FILE_SIZE_LIMITS[contentType];
+        
+        if (maxSize && file.size > maxSize) {
+            throw new BadRequestException(
+                `El archivo excede el tamaño máximo de ${maxSize / (1024 * 1024)}MB para ${contentType}`,
+            );
+        }
+
+        // Validar MIME type
+        const allowedMimes = ALLOWED_MIMES[contentType];
+        if (allowedMimes && !allowedMimes.includes(file.mimetype)) {
+        throw new BadRequestException(
+            `Tipo de archivo no permitido. Tipos aceptados: ${allowedMimes.join(', ')}`,
+        );
+        }
+
+        const result = await this.storageService.upload({
+            tenantSlug,
+            courseId,
+            contentType,
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            buffer: file.buffer,
+        });
+
+        return {
+            success: true,
+            data: {
+                url: result.cdnUrl,    // URL para guardar en BD
+                rawUrl: result.url,
+                key: result.key,
+                visibility: result.visibility,
+                size: result.size,
+                originalName: file.originalname,
+                mimeType: file.mimetype,
+            },
+        };
+    }
+
 
     @Get('course/:courseId')
     async getAllByCourse(
