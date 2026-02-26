@@ -5,6 +5,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ForumStats, GetAllForumsOptions, PaginatedForumResponse } from './interfaces/forums.interface';
 import { Courses } from 'src/courses/entities/courses.entity';
+import { ForumComment } from './entities/forum-comment.entity';
+import { ForumReaction } from './entities/forum-reaction.entity';
+import { CommentReaction } from './entities/comment-reaction.entity';
+import { UserProgressService } from 'src/progress/services/user-progress.service';
+import { ModuleItem, ModuleItemType } from 'src/courses/entities/courses-modules-item.entity';
 
 @Injectable()
 export class ForumsService {
@@ -16,6 +21,20 @@ export class ForumsService {
 
             @InjectRepository(Courses)
             private coursesRepository: Repository<Courses>,
+
+            @InjectRepository(ForumComment)
+            private commentRepository: Repository<ForumComment>,
+
+            @InjectRepository(ForumReaction)
+            private forumReactionRepository: Repository<ForumReaction>,
+
+            @InjectRepository(CommentReaction)
+            private commentReactionRepository: Repository<CommentReaction>,
+
+            @InjectRepository(ModuleItem)
+            private moduleItemRepository: Repository<ModuleItem>,
+
+            private readonly userProgressService: UserProgressService,
         ) { }
 
 
@@ -125,7 +144,17 @@ export class ForumsService {
                     id: forumId,
                     tenantId 
                 },
-                relations: ['author', 'comments', 'reactions']
+                relations: [
+                    'author',
+                    'comments',
+                    'comments.author',
+                    'comments.reactions',
+                    'comments.replies',
+                    'comments.replies.author',
+                    'comments.replies.reactions',
+                    'reactions',
+                    'course'
+                ]
             });
 
             if (!forum) {
@@ -262,6 +291,133 @@ export class ForumsService {
             totalPosts: totalThreads, // O puedes contar posts de otra manera
             activeUsers: uniqueAuthors.size
         };
+    }
+
+    async incrementViewCount(forumId: string): Promise<void> {
+        await this.forumRepository.increment({ id: forumId }, 'viewCount', 1);
+    }
+
+    async addReaction(forumId: string, userId: string, type: string): Promise<ForumReaction> {
+        // Upsert — si ya existe, actualiza el tipo
+        const existing = await this.forumReactionRepository.findOne({
+            where: { forumId, userId }
+        });
+
+        if (existing) {
+            existing.type = type as any;
+            return this.forumReactionRepository.save(existing);
+        }
+
+        const reaction = this.forumReactionRepository.create({ forumId, userId, type: type as any });
+        return this.forumReactionRepository.save(reaction);
+    }
+
+    async removeReaction(forumId: string, userId: string): Promise<void> {
+        await this.forumReactionRepository.delete({ forumId, userId });
+    }
+
+    async addComment(
+        forumId: string,
+        userId: string,
+        data: { content: string; parentCommentId?: string }
+    ): Promise<ForumComment> {
+        const comment = this.commentRepository.create({
+            forumId,
+            authorId: userId,
+            content: data.content,
+            parentCommentId: data.parentCommentId,
+        });
+
+        const savedComment = await this.commentRepository.save(comment);
+
+        // Registrar progreso solo si es comentario raíz (no respuesta)
+        if (!data.parentCommentId) {
+            await this.registerForumParticipationProgress(forumId, userId);
+        }
+
+        return savedComment;
+    }
+
+    private async registerForumParticipationProgress(
+        forumId: string,
+        userId: string
+    ): Promise<void> {
+        try {
+        // Buscar el ModuleItem que apunta a este foro
+        const moduleItem = await this.moduleItemRepository.findOne({
+            where: {
+                referenceId: forumId,
+                type: ModuleItemType.FORUM,
+            },
+        });
+
+        if (!moduleItem) {
+            console.warn(`No se encontró ModuleItem para el foro ${forumId}`);
+            return;
+        }
+
+        const percentage = 100; // Asumimos que participar en el foro completa el item al 100%
+
+        // Marcar el item como completado
+        await this.userProgressService.completeItem(userId, moduleItem.id, {}, percentage, {
+            percentage,
+            metadata: {
+                completedVia: 'forum_participation',
+                forumId,
+            },
+        });
+
+        } catch (error) {
+            // No propagar el error para no afectar la creación del comentario
+            console.error('Error registrando progreso de participación en foro:', error);
+        }
+    }
+
+
+    async updateComment(commentId: string, userId: string, content: string): Promise<ForumComment> {
+        const comment = await this.commentRepository.findOne({
+            where: { id: commentId, authorId: userId }
+        });
+
+        if (!comment) {
+            throw new NotFoundException('Comentario no encontrado o sin permisos');
+        }
+
+        comment.content = content;
+        comment.isEdited = true;
+        return this.commentRepository.save(comment);
+    }
+
+    async deleteComment(commentId: string, userId: string): Promise<void> {
+        const comment = await this.commentRepository.findOne({
+            where: { id: commentId, authorId: userId }
+        });
+
+        if (!comment) {
+            throw new NotFoundException('Comentario no encontrado o sin permisos');
+        }
+
+        await this.commentRepository.softDelete(commentId);
+    }
+
+    async addCommentReaction(commentId: string, userId: string, type: string): Promise<CommentReaction> {
+        const existing = await this.commentReactionRepository.findOne({
+            where: { commentId, userId }
+        });
+
+        if (existing) {
+            existing.type = type as any;
+            return this.commentReactionRepository.save(existing);
+        }
+
+        const reaction = this.commentReactionRepository.create({ 
+            commentId, userId, type: type as any 
+        });
+        return this.commentReactionRepository.save(reaction);
+    }
+
+    async removeCommentReaction(commentId: string, userId: string): Promise<void> {
+        await this.commentReactionRepository.delete({ commentId, userId });
     }
 
 }
