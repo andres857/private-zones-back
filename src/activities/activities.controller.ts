@@ -11,6 +11,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 import { ActivityType } from './entities/activity.entity';
+import { UserProgressService } from 'src/progress/services/user-progress.service';
+import { ModuleItemType } from 'src/courses/entities/courses-modules-item.entity';
 
 @Controller('activities')
 @UseGuards(AuthGuard('jwt'))
@@ -18,6 +20,7 @@ import { ActivityType } from './entities/activity.entity';
 export class ActivitiesController {
     constructor(
         private readonly activitiesService: ActivitiesService,
+        private readonly progressService: UserProgressService
     ) { }
 
     @Get('course/:courseId')
@@ -175,5 +178,43 @@ export class ActivitiesController {
             console.error('Error actualizando actividad:', error);
             throw new InternalServerErrorException('Error interno actualizando la actividad');
         }
+    }
+
+    @Post(':activityId/complete')
+    async markComplete(
+        @Req() request: AuthenticatedRequest,
+        @Param('activityId') activityId: string,
+        @Body() body: { score?: number; timeSpent?: number; responses?: Record<string, any>; percentage?: number, details?: Record<string, any> }
+    ) {
+        const userId = request.user?.['id'];
+
+        if (!userId) {
+            throw new Error('User not authenticated');
+        }
+
+        // Resolver el itemId real a partir del referenceId (activityId)
+        const itemId = await this.progressService.resolveItemId(
+            activityId,
+            ModuleItemType.ACTIVITY,
+        );
+
+        console.log('itemId:', itemId, 'userId', userId, 'score:', body.score, 'timeSpent:', body.timeSpent, 'responses:', body.responses);
+
+        await this.progressService.completeItem(
+            userId,
+            itemId,
+            {
+                score: body.percentage,
+                timeSpent: body.timeSpent,
+                responses: body.responses,
+            },
+            body.percentage,
+            body.details
+        );
+
+        return {
+            success: true,
+            message: 'Actividad marcada como completada',
+        };
     }
 }

@@ -9,6 +9,7 @@ import { Activity } from '../../entities/activity.entity';
 import { TenantsModule } from 'src/tenants/tenants.module';
 import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
 import { ActivityConfiguration } from 'src/activities/entities/activity-config.entity';
+import { UsersProgressModule } from 'src/progress/user-progress.module';
 
 @Module({
     imports: [
@@ -18,6 +19,7 @@ import { ActivityConfiguration } from 'src/activities/entities/activity-config.e
             ActivityConfiguration
         ]),
         TenantsModule,
+        UsersProgressModule
     ],
     controllers: [WordSearchController],
     providers: [

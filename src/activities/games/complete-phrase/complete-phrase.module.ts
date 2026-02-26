@@ -8,6 +8,7 @@ import { Activity } from '../../entities/activity.entity';
 import { ActivityConfiguration } from '../../entities/activity-config.entity';
 import { TenantsModule } from 'src/tenants/tenants.module';
 import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
+import { UsersProgressModule } from 'src/progress/user-progress.module';
 
 @Module({
     imports: [
@@ -17,6 +18,7 @@ import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-valida
             ActivityConfiguration,
         ]),
         TenantsModule,
+        UsersProgressModule
     ],
     controllers: [CompletePhraseController],
     providers: [

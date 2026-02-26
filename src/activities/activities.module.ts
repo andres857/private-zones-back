@@ -14,6 +14,7 @@ import { WordSearchModule } from './games/word-search/word-search.module';
 import { HangingModule } from './games/hanging/hanging.module';
 import { CompletePhraseModule } from './games/complete-phrase/complete-phrase.module';
 import { CrosswordModule } from './games/crossword/crossword.module';
+import { UsersProgressModule } from 'src/progress/user-progress.module';
 
 @Module({
     imports: [
@@ -25,6 +26,7 @@ import { CrosswordModule } from './games/crossword/crossword.module';
             Courses,
         ]),
         TenantsModule,
+        UsersProgressModule,
         forwardRef(() => WordSearchModule),
         forwardRef(() => HangingModule),
         forwardRef(() => CompletePhraseModule),

@@ -10,18 +10,24 @@ import {
     UseGuards,
     UseInterceptors,
     BadRequestException,
+    Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { WordSearchService } from './word-search.service';
 import { CreateWordSearchDto, UpdateWordSearchDto } from './dto/create-word-search.dto';
 import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
 import { AuthenticatedRequest } from 'src/common/enums/types/request.types';
+import { UserProgressService } from 'src/progress/services/user-progress.service';
+import { ModuleItemType } from 'src/courses/entities/courses-modules-item.entity';
 
 @Controller('word-search')
 @UseGuards(AuthGuard('jwt'))
 @UseInterceptors(TenantValidationInterceptor)
 export class WordSearchController {
-    constructor(private readonly wordSearchService: WordSearchService) {}
+    constructor(
+        private readonly wordSearchService: WordSearchService,
+        private readonly progressService: UserProgressService
+    ) {}
 
     /**
      * Crea un juego de sopa de letras para una actividad
@@ -92,18 +98,28 @@ export class WordSearchController {
     async generatePlayableGrid(
         @Req() request: AuthenticatedRequest,
         @Param('activityId') activityId: string,
+        @Query('fromModule') isFromModule: boolean,
     ) {
         try {
             const tenantId = request.tenant?.id;
+            const userId = request.user?.['id'];
 
             if (!tenantId) {
                 throw new BadRequestException('Tenant no validado');
+            }
+
+            if (!userId) {
+                throw new BadRequestException('Usuario no autenticado');
             }
 
             const gridData = await this.wordSearchService.generatePlayableGrid(
                 activityId,
                 tenantId,
             );
+
+            if (isFromModule) {
+                await this.progressService.startItemProgress(activityId, userId, ModuleItemType.ACTIVITY,);
+            }
 
             return {
                 success: true,

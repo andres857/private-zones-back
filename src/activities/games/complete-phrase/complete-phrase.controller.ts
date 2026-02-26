@@ -18,12 +18,17 @@ import { CompletePhraseService } from './complete-phrase.service';
 import { CreateCompletePhraseDto, UpdateCompletePhraseDto } from './dto/create-complete-phrase.dto';
 import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
 import { AuthenticatedRequest } from 'src/common/enums/types/request.types';
+import { UserProgressService } from 'src/progress/services/user-progress.service';
+import { ModuleItemType } from 'src/courses/entities/courses-modules-item.entity';
 
 @Controller('complete-phrase')
 @UseGuards(AuthGuard('jwt'))
 @UseInterceptors(TenantValidationInterceptor)
 export class CompletePhraseController {
-    constructor(private readonly completePhraseService: CompletePhraseService) {}
+    constructor(
+        private readonly completePhraseService: CompletePhraseService,
+        private readonly progressService: UserProgressService
+    ) {}
 
     /**
      * Crea un juego de completar frases para una actividad
@@ -94,13 +99,19 @@ export class CompletePhraseController {
     async generatePlayableData(
         @Req() request: AuthenticatedRequest,
         @Param('activityId') activityId: string,
+        @Query('fromModule') isFromModule: boolean,
         @Query('phraseIndex', new ParseIntPipe({ optional: true })) phraseIndex?: number,
     ) {
         try {
             const tenantId = request.tenant?.id;
+            const userId = request.user?.['id'];
 
             if (!tenantId) {
                 throw new BadRequestException('Tenant no validado');
+            }
+
+            if (!userId) {
+                throw new BadRequestException('Usuario no autenticado');
             }
 
             const gameData = await this.completePhraseService.generatePlayableData(
@@ -108,6 +119,10 @@ export class CompletePhraseController {
                 tenantId,
                 phraseIndex,
             );
+
+            if (isFromModule) {
+                await this.progressService.startItemProgress(activityId, userId, ModuleItemType.ACTIVITY,);
+            }
 
             return {
                 success: true,

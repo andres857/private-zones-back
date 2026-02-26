@@ -19,12 +19,17 @@ import { HangingService } from './hanging.service';
 import { CreateHangingDto, UpdateHangingDto } from './dto/create-hanging.dto';
 import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
 import { AuthenticatedRequest } from 'src/common/enums/types/request.types';
+import { UserProgressService } from 'src/progress/services/user-progress.service';
+import { ModuleItemType } from 'src/courses/entities/courses-modules-item.entity';
 
 @Controller('hanging')
 @UseGuards(AuthGuard('jwt'))
 @UseInterceptors(TenantValidationInterceptor)
 export class HangingController {
-    constructor(private readonly hangingService: HangingService) {}
+    constructor(
+        private readonly hangingService: HangingService,
+        private readonly progressService: UserProgressService
+    ) {}
 
     /**
      * Crea un juego de ahorcado para una actividad
@@ -95,13 +100,19 @@ export class HangingController {
     async generatePlayableData(
         @Req() request: AuthenticatedRequest,
         @Param('activityId') activityId: string,
+        @Query('fromModule') isFromModule: boolean,
         @Query('wordIndex', new ParseIntPipe({ optional: true })) wordIndex?: number,
     ) {
         try {
             const tenantId = request.tenant?.id;
+            const userId = request.user?.['id'];
 
             if (!tenantId) {
                 throw new BadRequestException('Tenant no validado');
+            }
+
+            if (!userId) {
+                throw new BadRequestException('Usuario no autenticado');
             }
 
             const gameData = await this.hangingService.generatePlayableData(
@@ -109,6 +120,11 @@ export class HangingController {
                 tenantId,
                 wordIndex,
             );
+
+
+            if (isFromModule) {
+                await this.progressService.startItemProgress(activityId, userId, ModuleItemType.ACTIVITY,);
+            }
 
             return {
                 success: true,
