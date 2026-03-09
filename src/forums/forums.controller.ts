@@ -1,10 +1,14 @@
-import { BadRequestException, Body, Controller, DefaultValuePipe, Delete, Get, InternalServerErrorException, Param, ParseIntPipe, Patch, Post, Query, Req, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, DefaultValuePipe, Delete, Get, InternalServerErrorException, Param, ParseIntPipe, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { TenantValidationInterceptor } from 'src/auth/interceptors/tenant-validation.interceptor';
 import { AuthenticatedRequest } from 'src/common/enums/types/request.types';
 import { ForumsService } from './forums.service';
 import { ModuleItemType } from 'src/courses/entities/courses-modules-item.entity';
 import { UserProgressService } from 'src/progress/services/user-progress.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { CurrentUser } from 'src/auth/decorators/user.decorator';
+import { memoryStorage } from 'multer';
+import { ContentType, StorageService } from 'src/storage/storage.service';
 
 @Controller('forums')
 @UseGuards(AuthGuard('jwt'))
@@ -13,11 +17,12 @@ export class ForumsController {
 
     constructor(
         private readonly forumsService: ForumsService,
-        private readonly progressService: UserProgressService
+        private readonly progressService: UserProgressService,
+        private readonly storageService: StorageService,
     ) { }
 
     @Post('/create')
-    async createForum(@Req() request: AuthenticatedRequest, @Body() body: any){
+    async createForum(@Req() request: AuthenticatedRequest, @Body() body: any) {
         try {
 
             const savedForum = await this.forumsService.createForum(body, request.user);
@@ -38,7 +43,7 @@ export class ForumsController {
     }
 
     @Post('/update/:forumId')
-    async updateForum(@Req() request: AuthenticatedRequest, @Param('forumId') forumId: string, @Body() body: any){
+    async updateForum(@Req() request: AuthenticatedRequest, @Param('forumId') forumId: string, @Body() body: any) {
         try {
 
             const updatedForum = await this.forumsService.updateForum(forumId, body);
@@ -105,7 +110,7 @@ export class ForumsController {
         @Query('search') search?: string,
         @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
         @Query('limit', new DefaultValuePipe(12), ParseIntPipe) limit?: number,
-        ) {
+    ) {
         try {
             const userId = request.user?.['id'];
             const tenantId = request.tenant?.id;
@@ -138,7 +143,7 @@ export class ForumsController {
             };
         } catch (error) {
             if (error instanceof BadRequestException) {
-            throw error;
+                throw error;
             }
             console.error('Error obteniendo foros:', error);
             throw new InternalServerErrorException('Error interno obteniendo los foros');
@@ -180,7 +185,7 @@ export class ForumsController {
         @Param('forumId') forumId: string
     ) {
         const userId = request.user?.id;
-        
+
         if (!userId) {
             throw new BadRequestException('Usuario no autenticado');
         }
@@ -198,7 +203,7 @@ export class ForumsController {
         @Body() body: { content: string; parentCommentId?: string }
     ) {
         const userId = request.user?.id;
-        
+
         if (!userId) {
             throw new BadRequestException('Usuario no autenticado');
         }
@@ -214,7 +219,7 @@ export class ForumsController {
         @Body() body: { content: string }
     ) {
         const userId = request.user?.id;
-        
+
         if (!userId) {
             throw new BadRequestException('Usuario no autenticado');
         }
@@ -229,7 +234,7 @@ export class ForumsController {
         @Param('commentId') commentId: string
     ) {
         const userId = request.user?.id;
-        
+
         if (!userId) {
             throw new BadRequestException('Usuario no autenticado');
         }
@@ -247,7 +252,7 @@ export class ForumsController {
         @Body() body: { type: string }
     ) {
         const userId = request.user?.id;
-        
+
         if (!userId) {
             throw new BadRequestException('Usuario no autenticado');
         }
@@ -262,13 +267,65 @@ export class ForumsController {
         @Param('commentId') commentId: string
     ) {
         const userId = request.user?.id;
-        
+
         if (!userId) {
             throw new BadRequestException('Usuario no autenticado');
         }
 
         await this.forumsService.removeCommentReaction(commentId, userId);
         return { success: true, message: 'Reacción eliminada' };
+    }
+
+    @Post('upload-thumbnail')
+    @UseInterceptors(
+        FileInterceptor('file', {
+            storage: memoryStorage(),
+            limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB máx
+        }),
+    )
+    async uploadThumbnail(
+        @UploadedFile() file: Express.Multer.File,
+        @CurrentUser() user: any,
+        @Req() req: any,
+    ) {
+        if (!file) {
+            throw new BadRequestException('No se proporcionó ningún archivo');
+        }
+
+        const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+        if (!ALLOWED_MIMES.includes(file.mimetype)) {
+            throw new BadRequestException(
+                `Tipo de archivo no permitido. Tipos aceptados: ${ALLOWED_MIMES.join(', ')}`,
+            );
+        }
+
+        const tenantSlug = req.tenant?.slug || user.tenantSlug;
+        if (!tenantSlug) {
+            throw new BadRequestException('Tenant no identificado');
+        }
+
+        // ── Subir a TEMP hasta que se cree el foro y tengamos el forumId ──
+        // Ruta: temp/{tenantSlug}/forums/thumbnails/{uuid}.ext
+        const result = await this.storageService.upload({
+            tenantSlug,
+            contentType: 'image' as ContentType,
+            visibility: 'temp',
+            customPath: 'forums/thumbnails',   // → temp/{slug}/forums/thumbnails/{file}
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            buffer: file.buffer,
+        });
+
+        return {
+            success: true,
+            data: {
+                tempKey: result.key,           // ← enviar al frontend para usarlo en createForum
+                tempUrl: result.url,           // URL temporal (no CDN, es privada/temp)
+                size: result.size,
+                originalName: file.originalname,
+                mimeType: file.mimetype,
+            },
+        };
     }
 
 }

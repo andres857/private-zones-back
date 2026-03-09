@@ -10,6 +10,7 @@ import { ForumReaction } from './entities/forum-reaction.entity';
 import { CommentReaction } from './entities/comment-reaction.entity';
 import { UserProgressService } from 'src/progress/services/user-progress.service';
 import { ModuleItem, ModuleItemType } from 'src/courses/entities/courses-modules-item.entity';
+import { StorageService } from 'src/storage/storage.service';
 
 @Injectable()
 export class ForumsService {
@@ -35,11 +36,15 @@ export class ForumsService {
             private moduleItemRepository: Repository<ModuleItem>,
 
             private readonly userProgressService: UserProgressService,
+
+            private readonly storageService: StorageService,
         ) { }
 
 
     async createForum(createForumDto: CreateForumDto, user): Promise<Forum> {
         try {
+
+            console.log('Creating forum with data:', createForumDto, 'for user:', user.id);
 
             if (!createForumDto.title || createForumDto.title.trim().length < 2 || createForumDto.title.trim().length > 100) {
                 throw new BadRequestException('El titulo debe tener entre 2 y 100 caracteres');
@@ -65,6 +70,37 @@ export class ForumsService {
             newForum.courseId = createForumDto.courseId;
 
             const savedForum = await this.forumRepository.save(newForum);
+
+            // ── Mover thumbnail de temp → public/{slug}/forums/{forumId}/thumbnails/ ──
+            if (createForumDto.thumbnailTempKey) {
+                try {
+                    // Necesitamos el tenantSlug, lo obtenemos del tenant del usuario
+                    // Si tienes acceso al tenant en el service, úsalo; si no, extráelo del key:
+                    // El key temporal tiene forma: temp/{tenantSlug}/forums/thumbnails/{file}
+                    const tenantSlug = this.extractTenantSlugFromKey(createForumDto.thumbnailTempKey);
+
+
+                    // console.log(createForumDto.thumbnailTempKey, tenantSlug, savedForum.id);
+
+                    const { cdnUrl } = await this.storageService.moveForumThumbnail(
+                        createForumDto.thumbnailTempKey,
+                        tenantSlug,
+                        savedForum.courseId,
+                        savedForum.id,
+                    );
+
+                    // console.log('Thumbnail movido a ubicación definitiva:', cdnUrl);
+
+                    // Actualizar el thumbnail con la URL definitiva
+                    savedForum.thumbnail = cdnUrl;
+                    await this.forumRepository.save(savedForum);
+
+                } catch (error) {
+                    // No bloquear la creación del foro si falla el move
+                    // El archivo quedará en temp (se puede limpiar con un cron job)
+                    console.error('Error moviendo thumbnail de temp:', error);
+                }
+            }
 
             return savedForum;
         } catch (error) {
@@ -418,6 +454,12 @@ export class ForumsService {
 
     async removeCommentReaction(commentId: string, userId: string): Promise<void> {
         await this.commentReactionRepository.delete({ commentId, userId });
+    }
+
+    private extractTenantSlugFromKey(tempKey: string): string {
+        const parts = tempKey.split('/');
+        // parts[0] = 'temp', parts[1] = tenantSlug
+        return parts[1];
     }
 
 }

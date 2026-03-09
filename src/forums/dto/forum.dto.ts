@@ -12,6 +12,10 @@ export class CreateForumDto {
     @Length(2, 100, { message: 'El titulo debe tener entre 2 y 100 caracteres' })
     title: string;
 
+
+    @IsOptional()
+    thumbnailTempKey?: string;
+
     @IsOptional()
     description?: string;
 

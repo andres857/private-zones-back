@@ -10,6 +10,7 @@ import { ForumReaction } from './entities/forum-reaction.entity';
 import { CommentReaction } from './entities/comment-reaction.entity';
 import { UsersProgressModule } from 'src/progress/user-progress.module';
 import { ModuleItem } from 'src/courses/entities/courses-modules-item.entity';
+import { StorageModule } from 'src/storage/storage.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ModuleItem } from 'src/courses/entities/courses-modules-item.entity';
       ModuleItem
     ]),
     forwardRef(() => UsersProgressModule),
+    StorageModule
   ],
   controllers: [ForumsController],
   providers: [ForumsService],
